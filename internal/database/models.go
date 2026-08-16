@@ -6,8 +6,9 @@ package database
 
 type Auth struct {
 	TwitchBotAccountID string
+	TwitchOwnerID      string
 	TwitchClientID     string
 	TwitchClientSecret string
 	OauthKey           string
-	OathRefreshKey     string
+	OauthRefreshKey    string
 }

@@ -19,7 +19,7 @@ func (q *Queries) DeleteAuth(ctx context.Context, twitchBotAccountID string) err
 }
 
 const getAuth = `-- name: GetAuth :one
-SELECT twitch_bot_account_id, twitch_client_id, twitch_client_secret, oauth_key, oath_refresh_key FROM auth WHERE twitch_bot_account_id = $1
+SELECT twitch_bot_account_id, twitch_owner_id, twitch_client_id, twitch_client_secret, oauth_key, oauth_refresh_key FROM auth WHERE twitch_bot_account_id = $1
 `
 
 func (q *Queries) GetAuth(ctx context.Context, twitchBotAccountID string) (Auth, error) {
@@ -27,64 +27,68 @@ func (q *Queries) GetAuth(ctx context.Context, twitchBotAccountID string) (Auth,
 	var i Auth
 	err := row.Scan(
 		&i.TwitchBotAccountID,
+		&i.TwitchOwnerID,
 		&i.TwitchClientID,
 		&i.TwitchClientSecret,
 		&i.OauthKey,
-		&i.OathRefreshKey,
+		&i.OauthRefreshKey,
 	)
 	return i, err
 }
 
-const refreshOath = `-- name: RefreshOath :exec
+const refreshOauth = `-- name: RefreshOauth :exec
 UPDATE auth 
-SET oauth_key = $1, oath_refresh_key = $2
+SET oauth_key = $1, oauth_refresh_key = $2
 WHERE twitch_bot_account_id = $3
 `
 
-type RefreshOathParams struct {
+type RefreshOauthParams struct {
 	OauthKey           string
-	OathRefreshKey     string
+	OauthRefreshKey    string
 	TwitchBotAccountID string
 }
 
-func (q *Queries) RefreshOath(ctx context.Context, arg RefreshOathParams) error {
-	_, err := q.db.ExecContext(ctx, refreshOath, arg.OauthKey, arg.OathRefreshKey, arg.TwitchBotAccountID)
+func (q *Queries) RefreshOauth(ctx context.Context, arg RefreshOauthParams) error {
+	_, err := q.db.ExecContext(ctx, refreshOauth, arg.OauthKey, arg.OauthRefreshKey, arg.TwitchBotAccountID)
 	return err
 }
 
 const setAuth = `-- name: SetAuth :exec
 INSERT INTO auth (
     twitch_bot_account_id,
+    twitch_owner_id,
     twitch_client_id,
     twitch_client_secret,
     oauth_key,
-    oath_refresh_key
+    oauth_refresh_key
     ) 
-VALUES ($1, $2, $3, $4, $5)
+VALUES ($1, $2, $3, $4, $5, $6)
 `
 
 type SetAuthParams struct {
 	TwitchBotAccountID string
+	TwitchOwnerID      string
 	TwitchClientID     string
 	TwitchClientSecret string
 	OauthKey           string
-	OathRefreshKey     string
+	OauthRefreshKey    string
 }
 
 func (q *Queries) SetAuth(ctx context.Context, arg SetAuthParams) error {
 	_, err := q.db.ExecContext(ctx, setAuth,
 		arg.TwitchBotAccountID,
+		arg.TwitchOwnerID,
 		arg.TwitchClientID,
 		arg.TwitchClientSecret,
 		arg.OauthKey,
-		arg.OathRefreshKey,
+		arg.OauthRefreshKey,
 	)
 	return err
 }
 
 const updateAuth = `-- name: UpdateAuth :exec
 UPDATE auth 
-SET twitch_client_id = $1, twitch_client_secret = $2, oauth_key = $3, oath_refresh_key = $4
+SET twitch_client_id = $1, twitch_client_secret = $2, oauth_key = $3, oauth_refresh_key = $4
 WHERE twitch_bot_account_id = $5
 `
 
@@ -92,7 +96,7 @@ type UpdateAuthParams struct {
 	TwitchClientID     string
 	TwitchClientSecret string
 	OauthKey           string
-	OathRefreshKey     string
+	OauthRefreshKey    string
 	TwitchBotAccountID string
 }
 
@@ -101,7 +105,7 @@ func (q *Queries) UpdateAuth(ctx context.Context, arg UpdateAuthParams) error {
 		arg.TwitchClientID,
 		arg.TwitchClientSecret,
 		arg.OauthKey,
-		arg.OathRefreshKey,
+		arg.OauthRefreshKey,
 		arg.TwitchBotAccountID,
 	)
 	return err
