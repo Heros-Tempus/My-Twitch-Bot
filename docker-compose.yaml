@@ -1,0 +1,158 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+
+  auth-service:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: auth-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  chat-listener:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: chat-listener
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+
+  chat-writer:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: chat-writer
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+
+  recipe-requester:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: recipe-requester
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  song-request-enqueuer:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: song-request-enqueuer
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  song-queue-player:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: song-queue-player
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  chat-overlay:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: chat-overlay
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8082:8080"
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  text-to-speech:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: text-to-speech
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8083:8080"
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
