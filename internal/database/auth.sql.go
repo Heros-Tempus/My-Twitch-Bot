@@ -7,6 +7,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 )
 
 const deleteAuth = `-- name: DeleteAuth :exec
@@ -19,7 +20,7 @@ func (q *Queries) DeleteAuth(ctx context.Context, twitchBotAccountID string) err
 }
 
 const getAuth = `-- name: GetAuth :one
-SELECT twitch_bot_account_id, twitch_owner_id, twitch_client_id, twitch_client_secret, oauth_key, oauth_refresh_key FROM auth WHERE twitch_bot_account_id = $1
+SELECT twitch_bot_account_id, twitch_owner_id, twitch_client_id, twitch_client_secret, oauth_key, oauth_refresh_key, oauth_expires_at FROM auth WHERE twitch_bot_account_id = $1
 `
 
 func (q *Queries) GetAuth(ctx context.Context, twitchBotAccountID string) (Auth, error) {
@@ -32,6 +33,7 @@ func (q *Queries) GetAuth(ctx context.Context, twitchBotAccountID string) (Auth,
 		&i.TwitchClientSecret,
 		&i.OauthKey,
 		&i.OauthRefreshKey,
+		&i.OauthExpiresAt,
 	)
 	return i, err
 }
@@ -53,7 +55,7 @@ func (q *Queries) RefreshOauth(ctx context.Context, arg RefreshOauthParams) erro
 	return err
 }
 
-const setAuth = `-- name: SetAuth :exec
+const setAuth = `-- name: SetAuth :one
 INSERT INTO auth (
     twitch_bot_account_id,
     twitch_owner_id,
@@ -63,6 +65,7 @@ INSERT INTO auth (
     oauth_refresh_key
     ) 
 VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING twitch_bot_account_id, twitch_owner_id, twitch_client_id, twitch_client_secret, oauth_key, oauth_refresh_key, oauth_expires_at
 `
 
 type SetAuthParams struct {
@@ -74,8 +77,8 @@ type SetAuthParams struct {
 	OauthRefreshKey    string
 }
 
-func (q *Queries) SetAuth(ctx context.Context, arg SetAuthParams) error {
-	_, err := q.db.ExecContext(ctx, setAuth,
+func (q *Queries) SetAuth(ctx context.Context, arg SetAuthParams) (Auth, error) {
+	row := q.db.QueryRowContext(ctx, setAuth,
 		arg.TwitchBotAccountID,
 		arg.TwitchOwnerID,
 		arg.TwitchClientID,
@@ -83,13 +86,23 @@ func (q *Queries) SetAuth(ctx context.Context, arg SetAuthParams) error {
 		arg.OauthKey,
 		arg.OauthRefreshKey,
 	)
-	return err
+	var i Auth
+	err := row.Scan(
+		&i.TwitchBotAccountID,
+		&i.TwitchOwnerID,
+		&i.TwitchClientID,
+		&i.TwitchClientSecret,
+		&i.OauthKey,
+		&i.OauthRefreshKey,
+		&i.OauthExpiresAt,
+	)
+	return i, err
 }
 
 const updateAuth = `-- name: UpdateAuth :exec
 UPDATE auth 
-SET twitch_client_id = $1, twitch_client_secret = $2, oauth_key = $3, oauth_refresh_key = $4
-WHERE twitch_bot_account_id = $5
+SET twitch_client_id = $1, twitch_client_secret = $2, oauth_key = $3, oauth_refresh_key = $4, oauth_expires_at = $5
+WHERE twitch_bot_account_id = $6
 `
 
 type UpdateAuthParams struct {
@@ -97,6 +110,7 @@ type UpdateAuthParams struct {
 	TwitchClientSecret string
 	OauthKey           string
 	OauthRefreshKey    string
+	OauthExpiresAt     sql.NullTime
 	TwitchBotAccountID string
 }
 
@@ -106,6 +120,7 @@ func (q *Queries) UpdateAuth(ctx context.Context, arg UpdateAuthParams) error {
 		arg.TwitchClientSecret,
 		arg.OauthKey,
 		arg.OauthRefreshKey,
+		arg.OauthExpiresAt,
 		arg.TwitchBotAccountID,
 	)
 	return err

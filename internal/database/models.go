@@ -4,6 +4,10 @@
 
 package database
 
+import (
+	"database/sql"
+)
+
 type Auth struct {
 	TwitchBotAccountID string
 	TwitchOwnerID      string
@@ -11,4 +15,5 @@ type Auth struct {
 	TwitchClientSecret string
 	OauthKey           string
 	OauthRefreshKey    string
+	OauthExpiresAt     sql.NullTime
 }

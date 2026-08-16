@@ -3,20 +3,41 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/database"
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
+
+type Oauth struct {
+	Token        string
+	Refresh      string
+	ClientID     string
+	ClientSecret string
+	ExpiresAt    time.Time
+}
+
+type twitchTokenResponse struct {
+	AccessToken  string   `json:"access_token"`
+	RefreshToken string   `json:"refresh_token"`
+	ExpiresIn    int      `json:"expires_in"`
+	Scope        []string `json:"scope"`
+	TokenType    string   `json:"token_type"`
+}
 
 func connectWithBackoff(uri string, maxAttempts int) (*amqp.Connection, error) {
 	backoff := time.Second
@@ -63,6 +84,57 @@ func isConnRefused(err error) bool {
 	return false
 }
 
+func refreshOath(token Oauth) (Oauth, error) {
+	endpoint := "https://id.twitch.tv/oauth2/token"
+
+	data := url.Values{}
+	data.Set("grant_type", "refresh_token")
+	data.Set("refresh_token", token.Refresh)
+	data.Set("client_id", token.ClientID)
+	data.Set("client_secret", token.ClientSecret)
+
+	req, err := http.NewRequest("POST", endpoint, strings.NewReader(data.Encode()))
+	if err != nil {
+		return token, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return token, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return token, fmt.Errorf("twitch API returned unexpected status code: %d", resp.StatusCode)
+	}
+
+	var tokenResp twitchTokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return token, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	token.Token = tokenResp.AccessToken
+	token.Refresh = tokenResp.RefreshToken
+	token.ExpiresAt = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
+
+	return token, nil
+}
+
+func notifyRabbit(chann *amqp.Channel, token Oauth, e bool) {
+	if e {
+		if err := pubsub.PublishJSON(chann, "twitch.topic", "auth.failed", token); err != nil {
+			log.Fatal("Error publishing auth failed message to RabbitMQ:", err)
+			return
+		}
+	}
+
+	if err := pubsub.PublishJSON(chann, "twitch.topic", "auth.token.refreshed", token); err != nil {
+		log.Fatal("Error publishing OAuth token to RabbitMQ:", err)
+	}
+}
+
 func main() {
 	_ = godotenv.Load(".env")
 	rabbitConString := os.Getenv("RABBIT_CON_STRING")
@@ -72,6 +144,15 @@ func main() {
 	}
 	defer con.Close()
 	log.Println("Connected to RabbitMQ")
+	rabbitChan, err := con.Channel()
+	if err != nil {
+		fmt.Println("Error creating channel:", err)
+		return
+	}
+	if err := pubsub.DeclareExchange(rabbitChan, "twitch.topic", "topic"); err != nil {
+		log.Fatal("Error declaring RabbitMQ topic exchange:", err)
+	}
+	log.Println("Declared RabbitMQ topic exchange")
 
 	dbConString := fmt.Sprintf("postgres://%s:%s@%s/%s",
 		os.Getenv("POSTGRES_USER"),
@@ -86,7 +167,6 @@ func main() {
 	log.Println("Connected to PostgreSQL")
 
 	dbQueries := database.New(db)
-
 	auth, err := dbQueries.GetAuth(context.Background(), os.Getenv("BOT_ID"))
 	if err == sql.ErrNoRows {
 		botID := os.Getenv("BOT_ID")
@@ -96,7 +176,7 @@ func main() {
 		oauthKey := os.Getenv("OAUTH_KEY")
 		oauthRefreshKey := os.Getenv("OAUTH_REFRESH_KEY")
 
-		err = dbQueries.SetAuth(context.Background(), database.SetAuthParams{
+		auth, err = dbQueries.SetAuth(context.Background(), database.SetAuthParams{
 			TwitchBotAccountID: botID,
 			TwitchOwnerID:      ownerID,
 			TwitchClientID:     clientID,
@@ -111,5 +191,27 @@ func main() {
 	if err != nil {
 		log.Fatal("Error fetching auth data:", err)
 	}
-	log.Printf("Fetched auth data for bot ID %s: %+v", auth.TwitchBotAccountID, auth)
+	oauth, err := refreshOath(Oauth{
+		Token:        auth.OauthKey,
+		Refresh:      auth.OauthRefreshKey,
+		ClientID:     auth.TwitchClientID,
+		ClientSecret: auth.TwitchClientSecret,
+		ExpiresAt:    auth.OauthExpiresAt.Time,
+	})
+	if err != nil {
+		log.Fatal("Error refreshing OAuth token:", err)
+		notifyRabbit(rabbitChan, oauth, true)
+	}
+	notifyRabbit(rabbitChan, oauth, false)
+
+	for {
+		if oauth.ExpiresAt.Before(time.Now().Add(5 * time.Minute)) {
+			oauth, err = refreshOath(oauth)
+			if err != nil {
+				log.Fatal("Error refreshing OAuth token:", err)
+				notifyRabbit(rabbitChan, oauth, true)
+			}
+			notifyRabbit(rabbitChan, oauth, false)
+		}
+	}
 }
