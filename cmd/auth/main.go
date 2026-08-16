@@ -130,7 +130,7 @@ func notifyRabbit(chann *amqp.Channel, token Oauth, e bool) {
 		}
 	}
 
-	if err := pubsub.PublishJSON(chann, "twitch.topic", "auth.token.refreshed", token); err != nil {
+	if err := pubsub.PublishJSON(chann, "twitch.auth", "auth.refreshed.#", token); err != nil {
 		log.Fatal("Error publishing OAuth token to RabbitMQ:", err)
 	}
 }
@@ -149,6 +149,10 @@ func main() {
 		fmt.Println("Error creating channel:", err)
 		return
 	}
+	if err := pubsub.DeclareExchange(rabbitChan, "twitch.auth", "fanout"); err != nil {
+		log.Fatal("Error declaring RabbitMQ fanout exchange:", err)
+	}
+	log.Println("Declared RabbitMQ fanout exchange")
 	if err := pubsub.DeclareExchange(rabbitChan, "twitch.topic", "topic"); err != nil {
 		log.Fatal("Error declaring RabbitMQ topic exchange:", err)
 	}
