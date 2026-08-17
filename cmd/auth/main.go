@@ -119,7 +119,7 @@ func refreshOath(token Oauth) (Oauth, error) {
 	token.Token = tokenResp.AccessToken
 	token.Refresh = tokenResp.RefreshToken
 	token.ExpiresAt = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
-
+	log.Printf("Successfully refreshed Oauth. Token active for another %v", time.Until(token.ExpiresAt).Round(time.Second))
 	return token, nil
 }
 
@@ -134,6 +134,7 @@ func notifyRabbit(chann *amqp.Channel, token Oauth, err error) {
 	if err := pubsub.PublishJSON(chann, "twitch.auth", "auth.refreshed.#", token); err != nil {
 		log.Fatal("Error publishing OAuth token to RabbitMQ:", err)
 	}
+	log.Println("Successfully published OAuth token to RabbitMQ.")
 }
 
 func main() {
@@ -224,19 +225,41 @@ func main() {
 	}
 	notifyRabbit(rabbitChan, oauth, nil)
 
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
 	for {
-		if oauth.ExpiresAt.Before(time.Now().Add(5 * time.Minute)) {
-			oauth, err = refreshOath(oauth)
+		<-ticker.C
+
+		remaining := time.Until(oauth.ExpiresAt)
+
+		if oauth.ExpiresAt.Before(time.Now().Add(10 * time.Minute)) {
+			log.Println("Token expiring soon. Refreshing OAuth token...")
+
+			newOauth, err := refreshOath(oauth)
 			if err != nil {
-				log.Fatal("Error refreshing OAuth token:", err)
+				log.Printf("Error refreshing OAuth token: %v", err)
 				notifyRabbit(rabbitChan, oauth, err)
+				continue
 			}
-			dbQueries.RefreshOauth(context.Background(), database.RefreshOauthParams{
+
+			oauth = newOauth
+
+			err = dbQueries.RefreshOauth(context.Background(), database.RefreshOauthParams{
 				OauthKey:           oauth.Token,
 				OauthRefreshKey:    oauth.Refresh,
 				TwitchBotAccountID: oauth.BotAccountID,
 			})
+			if err != nil {
+				log.Printf("Error updating database with new OAuth token: %v", err)
+			}
+
 			notifyRabbit(rabbitChan, oauth, nil)
+
+			log.Println("Successfully refreshed OAuth token and updated database.")
+
+		} else {
+			log.Printf("OAuth service healthy. Token active for another %v", remaining.Round(time.Second))
 		}
 	}
 }
