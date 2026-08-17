@@ -14,6 +14,29 @@ func DeclareExchange(ch *amqp.Channel, exchange, kind string) error {
 	return ch.ExchangeDeclare(exchange, kind, true, false, false, false, nil)
 }
 
+func DeclareAndBindQueue(ch *amqp.Channel, exchange, queueName, routingKey string) error {
+	table := make(amqp.Table)
+	table["x-dead-letter-exchange"] = "twitch.dlx"
+	_, err := ch.QueueDeclare(
+		queueName,
+		true,
+		false,
+		false,
+		false,
+		table,
+	)
+	if err != nil {
+		return err
+	}
+	return ch.QueueBind(
+		queueName,
+		routingKey,
+		exchange,
+		false,
+		nil,
+	)
+}
+
 func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
 	body, err := json.Marshal(val)
 	if err != nil {
@@ -59,7 +82,7 @@ func DeclareAndBind(conn *amqp.Connection, exchange, queueName, key string, queu
 		return nil, amqp.Queue{}, err
 	}
 	table := make(amqp.Table)
-	table["x-dead-letter-exchange"] = "peril_dlx"
+	table["x-dead-letter-exchange"] = "twitch.dlx"
 	rabbitQueue, err := rabbitChan.QueueDeclare(
 		queueName,
 		queueType == SimpleQueueTypeDurable,

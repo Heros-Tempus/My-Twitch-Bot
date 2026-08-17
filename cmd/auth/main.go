@@ -125,7 +125,7 @@ func refreshOath(token Oauth) (Oauth, error) {
 
 func notifyRabbit(chann *amqp.Channel, token Oauth, err error) {
 	if err != nil {
-		if err := pubsub.PublishJSON(chann, "twitch.topic", "auth.failed", token); err != nil {
+		if err := pubsub.PublishJSON(chann, "twitch.topic", "auth.failed", Oauth{}); err != nil {
 			log.Fatal("Error publishing auth failed message to RabbitMQ:", err)
 			return
 		}
@@ -158,6 +158,20 @@ func main() {
 		log.Fatal("Error declaring RabbitMQ topic exchange:", err)
 	}
 	log.Println("Declared RabbitMQ topic exchange")
+
+	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch.auth", "auth.refreshed.listener", ""); err != nil {
+		log.Fatal("Error declaring auth.refreshed.listener queue:", err)
+	}
+	log.Println("Declared and bound auth.refreshed.listener queue")
+
+	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch.auth", "auth.refreshed.writer", ""); err != nil {
+		log.Fatal("Error declaring auth.refreshed.writer queue:", err)
+	}
+	log.Println("Declared and bound auth.refreshed.writer queue")
+	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch.topic", "auth.failed", ""); err != nil {
+		log.Fatal("Error declaring auth.failed queue:", err)
+	}
+	log.Println("Declared and bound auth.refreshed.writer queue")
 
 	dbConString := fmt.Sprintf("postgres://%s:%s@%s/%s",
 		os.Getenv("POSTGRES_USER"),
@@ -218,8 +232,8 @@ func main() {
 				notifyRabbit(rabbitChan, oauth, err)
 			}
 			dbQueries.RefreshOauth(context.Background(), database.RefreshOauthParams{
-				OauthKey: oauth.Token,
-				OauthRefreshKey: oauth.Refresh,
+				OauthKey:           oauth.Token,
+				OauthRefreshKey:    oauth.Refresh,
 				TwitchBotAccountID: oauth.BotAccountID,
 			})
 			notifyRabbit(rabbitChan, oauth, nil)
