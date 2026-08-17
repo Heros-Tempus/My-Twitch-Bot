@@ -24,6 +24,7 @@ import (
 )
 
 type Oauth struct {
+	BotAccountID string
 	Token        string
 	Refresh      string
 	ClientID     string
@@ -122,8 +123,8 @@ func refreshOath(token Oauth) (Oauth, error) {
 	return token, nil
 }
 
-func notifyRabbit(chann *amqp.Channel, token Oauth, e bool) {
-	if e {
+func notifyRabbit(chann *amqp.Channel, token Oauth, err error) {
+	if err != nil {
 		if err := pubsub.PublishJSON(chann, "twitch.topic", "auth.failed", token); err != nil {
 			log.Fatal("Error publishing auth failed message to RabbitMQ:", err)
 			return
@@ -196,6 +197,7 @@ func main() {
 		log.Fatal("Error fetching auth data:", err)
 	}
 	oauth, err := refreshOath(Oauth{
+		BotAccountID: auth.TwitchBotAccountID,
 		Token:        auth.OauthKey,
 		Refresh:      auth.OauthRefreshKey,
 		ClientID:     auth.TwitchClientID,
@@ -204,18 +206,23 @@ func main() {
 	})
 	if err != nil {
 		log.Fatal("Error refreshing OAuth token:", err)
-		notifyRabbit(rabbitChan, oauth, true)
+		notifyRabbit(rabbitChan, oauth, err)
 	}
-	notifyRabbit(rabbitChan, oauth, false)
+	notifyRabbit(rabbitChan, oauth, nil)
 
 	for {
 		if oauth.ExpiresAt.Before(time.Now().Add(5 * time.Minute)) {
 			oauth, err = refreshOath(oauth)
 			if err != nil {
 				log.Fatal("Error refreshing OAuth token:", err)
-				notifyRabbit(rabbitChan, oauth, true)
+				notifyRabbit(rabbitChan, oauth, err)
 			}
-			notifyRabbit(rabbitChan, oauth, false)
+			dbQueries.RefreshOauth(context.Background(), database.RefreshOauthParams{
+				OauthKey: oauth.Token,
+				OauthRefreshKey: oauth.Refresh,
+				TwitchBotAccountID: oauth.BotAccountID,
+			})
+			notifyRabbit(rabbitChan, oauth, nil)
 		}
 	}
 }
