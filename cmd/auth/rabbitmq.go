@@ -60,14 +60,13 @@ func isConnRefused(err error) bool {
 
 func notifyRabbit(chann *amqp.Channel, token Oauth, err error) {
 	if err != nil {
-		if pubErr := pubsub.PublishJSON(chann, "twitch.topic", "auth.failed", Oauth{}); pubErr != nil {
-			log.Fatal("Error publishing auth failed message to RabbitMQ:", pubErr)
+		if pubErr := pubsub.PublishJSON(chann, "twitch.auth", "auth.failed", Oauth{}); pubErr != nil {
+			log.Println("Error publishing auth failed message to RabbitMQ:", pubErr)
 			return
 		}
 	}
-
 	if pubErr := pubsub.PublishJSON(chann, "twitch.auth", "auth.refreshed.#", token); pubErr != nil {
-		log.Fatal("Error publishing OAuth token to RabbitMQ:", pubErr)
+		log.Println("Error publishing OAuth token to RabbitMQ:", pubErr)
 	}
 	log.Println("Successfully published OAuth token to RabbitMQ.")
 }
@@ -90,11 +89,6 @@ func setupRabbitMQ(uri string) (*amqp.Connection, *amqp.Channel, error) {
 	}
 	log.Println("Declared RabbitMQ fanout exchange")
 
-	if err := pubsub.DeclareExchange(rabbitChan, "twitch.topic", "topic"); err != nil {
-		log.Fatal("Error declaring RabbitMQ topic exchange:", err)
-	}
-	log.Println("Declared RabbitMQ topic exchange")
-
 	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch.auth", "auth.refreshed.listener", ""); err != nil {
 		log.Fatal("Error declaring auth.refreshed.listener queue:", err)
 	}
@@ -105,7 +99,7 @@ func setupRabbitMQ(uri string) (*amqp.Connection, *amqp.Channel, error) {
 	}
 	log.Println("Declared and bound auth.refreshed.writer queue")
 
-	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch.topic", "auth.failed", ""); err != nil {
+	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch.auth", "auth.failed", ""); err != nil {
 		log.Fatal("Error declaring auth.failed queue:", err)
 	}
 	log.Println("Declared and bound auth.failed queue")
