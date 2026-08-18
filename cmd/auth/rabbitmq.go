@@ -71,23 +71,50 @@ func notifyRabbit(chann *amqp.Channel, token Oauth, err error) {
 	log.Println("Successfully published OAuth token to RabbitMQ.")
 }
 
+func setupRefreshListener(con *amqp.Connection) (<-chan struct{}, error) {
+	refreshChan := make(chan struct{}, 1)
+	err := pubsub.SubscribeJSON(
+		con,
+		"auth.requests",
+		"auth.refresh.listener",
+		"auth.refresh.request",
+		pubsub.SimpleQueueTypeTransient,
+		func(msg struct{}) pubsub.AckType {
+			select {
+			case refreshChan <- struct{}{}:
+			default:
+			}
+			return pubsub.AckTypeAck
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("Error subscribing to refresh requests: %w", err)
+	}
+	return refreshChan, nil
+}
+
 func setupRabbitMQ(uri string) (*amqp.Connection, *amqp.Channel, error) {
 	con, err := connectWithBackoff(uri, 5)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error connecting to RabbitMQ: %w", err)
+		return nil, nil, fmt.Errorf("Error connecting to RabbitMQ: %w", err)
 	}
 	log.Println("Connected to RabbitMQ")
 
 	rabbitChan, err := con.Channel()
 	if err != nil {
 		con.Close()
-		return nil, nil, fmt.Errorf("error creating channel: %w", err)
+		return nil, nil, fmt.Errorf("Error creating channel: %w", err)
 	}
 
 	if err := pubsub.DeclareExchange(rabbitChan, "twitch.auth", "fanout"); err != nil {
 		log.Fatal("Error declaring RabbitMQ fanout exchange:", err)
 	}
 	log.Println("Declared RabbitMQ fanout exchange")
+
+	if err := pubsub.DeclareExchange(rabbitChan, "auth.requests", "direct"); err != nil {
+		log.Fatal("Error declaring auth.requests direct exchange:", err)
+	}
+	log.Println("Declared RabbitMQ direct exchange for incoming requests")
 
 	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch.auth", "auth.refreshed.listener", ""); err != nil {
 		log.Fatal("Error declaring auth.refreshed.listener queue:", err)

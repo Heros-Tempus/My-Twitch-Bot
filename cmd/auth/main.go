@@ -105,9 +105,37 @@ func main() {
 	notifyRabbit(rabbitChan, oauth, nil)
 	log.Println("OAuth service initialized successfully.")
 
+
+	performRefreshLogic := func(currentOauth Oauth) Oauth {
+		newOauth, err := refreshOath(currentOauth)
+		if err != nil {
+			log.Printf("Error refreshing OAuth token: %v", err)
+			notifyRabbit(rabbitChan, currentOauth, err) //
+			return currentOauth
+		}
+
+		err = dbQueries.RefreshOauth(context.Background(), database.RefreshOauthParams{
+			OauthKey:           newOauth.Token,
+			OauthRefreshKey:    newOauth.Refresh,
+			TwitchBotAccountID: newOauth.BotAccountID,
+		})
+		if err != nil {
+			log.Printf("Error updating database with new OAuth token: %v", err)
+		}
+
+		notifyRabbit(rabbitChan, newOauth, nil)
+		log.Println("Successfully refreshed OAuth token.")
+		return newOauth
+	}
+
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
+	refreshChan, err := setupRefreshListener(con)
+	if err != nil {
+		log.Printf("Warning: %v", err)
+	}
+	
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
@@ -117,30 +145,14 @@ func main() {
 			remaining := time.Until(oauth.ExpiresAt)
 			if oauth.ExpiresAt.Before(time.Now().Add(10 * time.Minute)) {
 				log.Printf("Token expiring in %v. Refreshing OAuth token...", remaining.Round(time.Second))
-
-				newOauth, err := refreshOath(oauth)
-				if err != nil {
-					log.Printf("Error refreshing OAuth token: %v", err)
-					notifyRabbit(rabbitChan, oauth, err)
-					continue
-				}
-				oauth = newOauth
-
-				err = dbQueries.RefreshOauth(context.Background(), database.RefreshOauthParams{
-					OauthKey:           oauth.Token,
-					OauthRefreshKey:    oauth.Refresh,
-					TwitchBotAccountID: oauth.BotAccountID,
-				})
-				if err != nil {
-					log.Printf("Error updating database with new OAuth token: %v", err)
-				}
-
-				notifyRabbit(rabbitChan, oauth, nil)
-				log.Println("Successfully refreshed OAuth token.")
-
+				oauth = performRefreshLogic(oauth)
 			} else {
 				log.Printf("OAuth service healthy. Token active for another %v", remaining.Round(time.Second))
 			}
+
+		case <-refreshChan:
+			log.Println("Received immediate refresh request from microservice. Refreshing...")
+			oauth = performRefreshLogic(oauth)
 
 		case sig := <-sigChan:
 			log.Println("Received interrupt signal. Shutting down...", sig)
