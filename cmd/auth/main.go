@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/database"
@@ -106,37 +108,43 @@ func main() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
 	for {
-		<-ticker.C
+		select {
+		case <-ticker.C:
+			remaining := time.Until(oauth.ExpiresAt)
+			if oauth.ExpiresAt.Before(time.Now().Add(10 * time.Minute)) {
+				log.Printf("Token expiring in %v. Refreshing OAuth token...", remaining.Round(time.Second))
 
-		remaining := time.Until(oauth.ExpiresAt)
+				newOauth, err := refreshOath(oauth)
+				if err != nil {
+					log.Printf("Error refreshing OAuth token: %v", err)
+					notifyRabbit(rabbitChan, oauth, err)
+					continue
+				}
+				oauth = newOauth
 
-		if oauth.ExpiresAt.Before(time.Now().Add(10 * time.Minute)) {
-			log.Printf("Token expiring in %v. Refreshing OAuth token...", remaining.Round(time.Second))
+				err = dbQueries.RefreshOauth(context.Background(), database.RefreshOauthParams{
+					OauthKey:           oauth.Token,
+					OauthRefreshKey:    oauth.Refresh,
+					TwitchBotAccountID: oauth.BotAccountID,
+				})
+				if err != nil {
+					log.Printf("Error updating database with new OAuth token: %v", err)
+				}
 
-			newOauth, err := refreshOath(oauth)
-			if err != nil {
-				log.Printf("Error refreshing OAuth token: %v", err)
-				notifyRabbit(rabbitChan, oauth, err)
-				continue
+				notifyRabbit(rabbitChan, oauth, nil)
+				log.Println("Successfully refreshed OAuth token.")
+
+			} else {
+				log.Printf("OAuth service healthy. Token active for another %v", remaining.Round(time.Second))
 			}
 
-			oauth = newOauth
-
-			err = dbQueries.RefreshOauth(context.Background(), database.RefreshOauthParams{
-				OauthKey:           oauth.Token,
-				OauthRefreshKey:    oauth.Refresh,
-				TwitchBotAccountID: oauth.BotAccountID,
-			})
-			if err != nil {
-				log.Printf("Error updating database with new OAuth token: %v", err)
-			}
-
-			notifyRabbit(rabbitChan, oauth, nil)
-			log.Println("Successfully refreshed OAuth token and updated database.")
-
-		} else {
-			log.Printf("OAuth service healthy. Token active for another %v", remaining.Round(time.Second))
+		case sig := <-sigChan:
+			log.Println("Received interrupt signal. Shutting down...", sig)
+			os.Exit(0)
 		}
 	}
 }
