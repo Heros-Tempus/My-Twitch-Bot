@@ -1,4 +1,4 @@
-package main
+package auth
 
 import (
 	"context"
@@ -19,9 +19,10 @@ func main() {
 	rabbitConString := os.Getenv("RABBIT_CON_STRING")
 	con, rabbitChan, err := setupRabbitMQ(rabbitConString)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error setting up RabbitMQ:", err)
 	}
 	defer con.Close()
+	log.Println("Connected to RabbitMQ")
 
 	dbConString := fmt.Sprintf("postgres://%s:%s@%s/%s",
 		os.Getenv("POSTGRES_USER"),
@@ -36,44 +37,71 @@ func main() {
 	log.Println("Connected to PostgreSQL")
 
 	dbQueries := database.New(db)
+	botID := os.Getenv("BOT_ID")
 
-	auth, err := dbQueries.GetAuth(context.Background(), os.Getenv("BOT_ID"))
-	if err == sql.ErrNoRows {
-		botID := os.Getenv("BOT_ID")
+	var oauth Oauth
+	var useEnvFallback bool
+
+	auth, err := dbQueries.GetAuth(context.Background(), botID)
+	if err != nil {
+		log.Printf("Auth not found or error reading from DB: %v", err)
+		useEnvFallback = true
+	} else {
+		oauth, err = refreshOath(Oauth{
+			BotAccountID: auth.TwitchBotAccountID,
+			Token:        auth.OauthKey,
+			Refresh:      auth.OauthRefreshKey,
+			ClientID:     auth.TwitchClientID,
+			ClientSecret: auth.TwitchClientSecret,
+			ExpiresAt:    auth.OauthExpiresAt.Time,
+		})
+		if err != nil {
+			log.Printf("Failed to refresh OAuth token using DB data: %v", err)
+			useEnvFallback = true
+		}
+	}
+
+	if useEnvFallback {
+		log.Println("Falling back to .env authentication data...")
+
 		ownerID := os.Getenv("OWNER_ID")
 		clientID := os.Getenv("CLIENT_ID")
 		clientSecret := os.Getenv("CLIENT_SECRET")
 		oauthKey := os.Getenv("OAUTH_KEY")
 		oauthRefreshKey := os.Getenv("OAUTH_REFRESH_KEY")
 
-		auth, err = dbQueries.SetAuth(context.Background(), database.SetAuthParams{
+		envOauth := Oauth{
+			BotAccountID: botID,
+			Token:        oauthKey,
+			Refresh:      oauthRefreshKey,
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+		}
+
+		oauth, err = refreshOath(envOauth)
+		if err != nil {
+			log.Printf("Critical: Failed to refresh OAuth token from .env: %v", err)
+			notifyRabbit(rabbitChan, envOauth, err)
+			os.Exit(1)
+		}
+
+		_, err = dbQueries.SetAuth(context.Background(), database.SetAuthParams{
 			TwitchBotAccountID: botID,
 			TwitchOwnerID:      ownerID,
 			TwitchClientID:     clientID,
 			TwitchClientSecret: clientSecret,
-			OauthKey:           oauthKey,
-			OauthRefreshKey:    oauthRefreshKey,
+			OauthKey:           oauth.Token,
+			OauthRefreshKey:    oauth.Refresh,
 		})
 		if err != nil {
-			log.Fatal("Error setting auth data:", err)
+			log.Printf("Warning: Successfully authenticated via .env, but failed to save to DB: %v", err)
+		} else {
+			log.Println("Successfully saved .env authentication data to DB.")
 		}
-	} else if err != nil {
-		log.Fatal("Error fetching auth data:", err)
 	}
 
-	oauth, err := refreshOath(Oauth{
-		BotAccountID: auth.TwitchBotAccountID,
-		Token:        auth.OauthKey,
-		Refresh:      auth.OauthRefreshKey,
-		ClientID:     auth.TwitchClientID,
-		ClientSecret: auth.TwitchClientSecret,
-		ExpiresAt:    auth.OauthExpiresAt.Time,
-	})
-	if err != nil {
-		log.Fatal("Error refreshing OAuth token:", err)
-		notifyRabbit(rabbitChan, oauth, err)
-	}
 	notifyRabbit(rabbitChan, oauth, nil)
+	log.Println("OAuth service initialized successfully.")
 
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
