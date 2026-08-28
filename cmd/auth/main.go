@@ -1,4 +1,4 @@
-package auth
+package main
 
 import (
 	"context"
@@ -16,9 +16,13 @@ import (
 )
 
 func main() {
-	_ = godotenv.Load(".env")
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Print("no env file found")
+	}
 
 	rabbitConString := os.Getenv("RABBIT_CON_STRING")
+	log.Printf("RabbitMQ connection string: %s", rabbitConString)
 	con, rabbitChan, err := setupRabbitMQ(rabbitConString)
 	if err != nil {
 		log.Fatal("Error setting up RabbitMQ:", err)
@@ -26,11 +30,12 @@ func main() {
 	defer con.Close()
 	log.Println("Connected to RabbitMQ")
 
-	dbConString := fmt.Sprintf("postgres://%s:%s@%s/%s",
+	dbConString := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable",
 		os.Getenv("POSTGRES_USER"),
 		os.Getenv("POSTGRES_PASSWORD"),
 		os.Getenv("POSTGRES_HOST"),
 		os.Getenv("POSTGRES_DB"))
+	log.Printf("PostgreSQL connection string: %s", dbConString)
 	db, err := sql.Open("postgres", dbConString)
 	if err != nil {
 		log.Fatal("Error connecting to PostgreSQL:", err)
@@ -105,7 +110,6 @@ func main() {
 	notifyRabbit(rabbitChan, oauth, nil)
 	log.Println("OAuth service initialized successfully.")
 
-
 	performRefreshLogic := func(currentOauth Oauth) Oauth {
 		newOauth, err := refreshOath(currentOauth)
 		if err != nil {
@@ -135,7 +139,7 @@ func main() {
 	if err != nil {
 		log.Printf("Warning: %v", err)
 	}
-	
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 

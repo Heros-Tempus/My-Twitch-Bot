@@ -7,3 +7,5 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/rabbitmq/amqp091-go v1.11.0
 )
+
+require github.com/coder/websocket v1.8.15 // indirect
