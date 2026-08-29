@@ -24,7 +24,7 @@ type token struct {
 type tokenContainer struct {
 	mu            sync.RWMutex
 	hasValidToken bool
-	isInvalidated bool
+	isRevoked     bool
 	token         token
 }
 
@@ -34,18 +34,31 @@ func (t *tokenContainer) Get() (token, bool) {
 	return t.token, t.hasValidToken
 }
 
-func (t *tokenContainer) Invalidate() {
+func (t *tokenContainer) Revoke() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.hasValidToken = false
-	t.isInvalidated = true
+	t.isRevoked = true
+}
+
+func (t *tokenContainer) InvalidateForRefresh() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.isRevoked {
+		return false
+	}
+	if t.hasValidToken {
+		t.hasValidToken = false
+		return true
+	}
+	return false
 }
 
 func (t *tokenContainer) UpdateIfNewer(msg token) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	if t.isInvalidated {
+	if t.isRevoked {
 		return false
 	}
 
@@ -70,7 +83,7 @@ func getOAuth(msg token) pubsub.AckType {
 	firstTokenOnce.Do(func() { close(firstTokenReceived) })
 
 	if msg.Token == "" {
-		tokenStore.Invalidate()
+		tokenStore.Revoke()
 		log.Printf("Receieved error signal from Auth, shutting down")
 		return pubsub.AckTypeAck
 	}
