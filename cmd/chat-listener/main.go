@@ -27,49 +27,54 @@ type tokenContainer struct {
 	token         token
 }
 
-func (t *tokenContainer) GetToken() token {
+func (t *tokenContainer) Get() (token, bool) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	return t.token
+	return t.token, t.hasValidToken
 }
 
-func (t *tokenContainer) SetToken(newToken token) {
+func (t *tokenContainer) Invalidate() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.token = newToken
+	t.hasValidToken = false
 }
 
-func (t *tokenContainer) HasValidToken() bool {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
-	return t.hasValidToken
-}
-
-func (t *tokenContainer) SetHasValidToken(hasValidToken bool) {
+func (t *tokenContainer) UpdateIfNewer(msg token) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.hasValidToken = hasValidToken
-}
 
-func GetValidToken() (token, bool) {
-	return tokenStore.GetToken(), tokenStore.HasValidToken()
+	if t.hasValidToken && t.token.ExpiresAt.After(msg.ExpiresAt) {
+		return false
+	}
+
+	t.token = msg
+	t.hasValidToken = true
+	return true
 }
 
 var tokenStore = &tokenContainer{}
 var firstTokenOnce sync.Once
 var firstTokenReceived = make(chan struct{})
 
+func GetValidToken() (token, bool) {
+	return tokenStore.Get()
+}
+
 func getOAuth(msg token) pubsub.AckType {
+	firstTokenOnce.Do(func() { close(firstTokenReceived) })
+
 	if msg.Token == "" {
-		tokenStore.SetHasValidToken(false)
+		tokenStore.Invalidate()
 		return pubsub.AckTypeAck
 	}
 
-	tokenStore.SetToken(msg)
-	tokenStore.SetHasValidToken(true)
-	firstTokenOnce.Do(func() { close(firstTokenReceived) })
+	updated := tokenStore.UpdateIfNewer(msg)
+	if !updated {
+		log.Printf("Received token older than current token")
+	} else {
+		log.Printf("OAuth refreshed for bot account %s", msg.BotAccountID)
+	}
 
-	log.Printf("OAuth refreshed for bot account %s", msg.BotAccountID)
 	return pubsub.AckTypeAck
 }
 
