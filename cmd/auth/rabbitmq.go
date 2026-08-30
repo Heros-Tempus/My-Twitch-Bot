@@ -15,6 +15,7 @@ func notifyRabbit(chann *amqp.Channel, token Oauth, err error) {
 			return
 		}
 	}
+	fmt.Printf("Publishing OAuth token to RabbitMQ: %+v\n", token)
 	if pubErr := pubsub.PublishJSON(chann, "twitch.auth", "auth.refreshed.#", token); pubErr != nil {
 		log.Println("Error publishing OAuth token to RabbitMQ:", pubErr)
 	}

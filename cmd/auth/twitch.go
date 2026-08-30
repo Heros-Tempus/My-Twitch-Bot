@@ -16,6 +16,7 @@ func refreshOath(token Oauth) (Oauth, error) {
 	data := url.Values{}
 	data.Set("grant_type", "refresh_token")
 	data.Set("refresh_token", token.Refresh)
+	data.Set("user_id", token.OwnerID)
 	data.Set("client_id", token.ClientID)
 	data.Set("client_secret", token.ClientSecret)
 

@@ -56,6 +56,7 @@ func main() {
 	} else {
 		oauth, err = refreshOath(Oauth{
 			BotAccountID: auth.TwitchBotAccountID,
+			OwnerID:      auth.TwitchOwnerID,
 			Token:        auth.OauthKey,
 			Refresh:      auth.OauthRefreshKey,
 			ClientID:     auth.TwitchClientID,
@@ -79,6 +80,7 @@ func main() {
 
 		envOauth := Oauth{
 			BotAccountID: botID,
+			OwnerID:      ownerID,
 			Token:        oauthKey,
 			Refresh:      oauthRefreshKey,
 			ClientID:     clientID,
@@ -114,7 +116,7 @@ func main() {
 		newOauth, err := refreshOath(currentOauth)
 		if err != nil {
 			log.Printf("Error refreshing OAuth token: %v", err)
-			notifyRabbit(rabbitChan, currentOauth, err) //
+			notifyRabbit(rabbitChan, currentOauth, err)
 			return currentOauth
 		}
 

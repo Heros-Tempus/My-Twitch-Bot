@@ -4,6 +4,7 @@ import "time"
 
 type Oauth struct {
 	BotAccountID string
+	OwnerID      string
 	Token        string
 	Refresh      string
 	ClientID     string
