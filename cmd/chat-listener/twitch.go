@@ -60,7 +60,7 @@ func SubscribeToChat(sessionID string, t Token) error {
 	return nil
 }
 
-func ListenToTwitch(ctx context.Context, t Token, onMessage func(string)) error {
+func ListenToTwitch(ctx context.Context, t Token, onMessage func(string), onRevocation func(SubscriptionRevocation)) error {
 	wsURL := "wss://eventsub.wss.twitch.tv/ws"
 
 	log.Printf("Connecting to Twitch EventSub at %s...", wsURL)
@@ -166,6 +166,17 @@ func ListenToTwitch(ctx context.Context, t Token, onMessage func(string)) error 
 			c = newConn
 			isReconnecting = true
 
+		case "revocation":
+			var revocation SubscriptionRevocation
+			if err := json.Unmarshal(env.Payload, &revocation); err != nil {
+				log.Printf("Failed to unmarshal revocation: %v", err)
+				continue
+			}
+			log.Printf("Subscription revoked. Type: %s, Status: %s", revocation.Subscription.Type, revocation.Subscription.Status)
+			if tokenStore.InvalidateForRefresh() {
+				onRevocation(revocation)
+			}
+			return fmt.Errorf("subscription revoked (status: %s)", revocation.Subscription.Status)
 		default:
 			log.Printf("Received unhandled message type: %s", env.Metadata.MessageType)
 		}

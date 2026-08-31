@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 	"github.com/joho/godotenv"
 )
 
@@ -69,7 +70,13 @@ func main() {
 
 		connectionStartTime := time.Now()
 		routeHandler := BuildCommandRouter(ch)
-		err := ListenToTwitch(connCtx, tkn, routeHandler)
+		revocationHandler := func(revocation SubscriptionRevocation) {
+			err := pubsub.PublishJSON(ch, "auth.requests", "auth.refresh.request", revocation)
+			if err != nil {
+				log.Printf("Error publishing revocation: %v", err)
+			}
+		}
+		err := ListenToTwitch(connCtx, tkn, routeHandler, revocationHandler)
 
 		cancelConn()
 

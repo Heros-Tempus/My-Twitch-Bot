@@ -8,11 +8,13 @@ import (
 )
 
 type Command struct {
+	User string
 	Name string
 	Args string
 }
 
 type ChatMessage struct {
+	User    string
 	Message string
 }
 
@@ -20,6 +22,16 @@ var (
 	CurrentConnCancel context.CancelFunc
 	ConnCancelMu      sync.Mutex
 )
+	
+type SubscriptionRevocation struct {
+	Subscription struct {
+		ID        string    `json:"id"`
+		Type      string    `json:"type"`
+		Version   string    `json:"version"`
+		Status    string    `json:"status"`
+		CreatedAt time.Time `json:"created_at"`
+	} `json:"subscription"`
+}
 
 type WSEnvelope struct {
 	Metadata struct {
