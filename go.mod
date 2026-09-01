@@ -8,4 +8,4 @@ require (
 	github.com/rabbitmq/amqp091-go v1.11.0
 )
 
-require github.com/coder/websocket v1.8.15 // indirect
+require github.com/coder/websocket v1.8.15

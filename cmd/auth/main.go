@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -30,11 +29,7 @@ func main() {
 	defer con.Close()
 	log.Println("Connected to RabbitMQ")
 
-	dbConString := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable",
-		os.Getenv("POSTGRES_USER"),
-		os.Getenv("POSTGRES_PASSWORD"),
-		os.Getenv("POSTGRES_HOST"),
-		os.Getenv("POSTGRES_DB"))
+	dbConString := os.Getenv("POSTGRES_CON_STRING")
 	log.Printf("PostgreSQL connection string: %s", dbConString)
 	db, err := sql.Open("postgres", dbConString)
 	if err != nil {
