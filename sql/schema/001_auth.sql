@@ -10,4 +10,4 @@ CREATE TABLE auth (
 );
 
 -- +goose Down
-DROP TABLE auth;
+DROP TABLE IF EXISTS auth;
