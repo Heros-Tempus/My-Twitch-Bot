@@ -17,3 +17,29 @@ type Auth struct {
 	OauthRefreshKey    string
 	OauthExpiresAt     sql.NullTime
 }
+
+type CurrentPlayback struct {
+	ID              int32
+	VideoID         sql.NullString
+	StartedAt       sql.NullTime
+	DurationSeconds sql.NullInt32
+}
+
+type Queue struct {
+	ID       int32
+	VideoID  sql.NullString
+	Position sql.NullInt32
+}
+
+type Track struct {
+	VideoID          string
+	Url              string
+	Track            string
+	Artist           string
+	Album            sql.NullString
+	SourceMedia      sql.NullString
+	OriginalComposer sql.NullString
+	DurationSeconds  sql.NullInt32
+	ContentIDRisk    sql.NullBool
+	Enabled          sql.NullBool
+}
