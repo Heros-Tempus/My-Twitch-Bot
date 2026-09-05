@@ -60,7 +60,7 @@ func SubscribeToChat(sessionID string, t Token) error {
 	return nil
 }
 
-func ListenToTwitch(ctx context.Context, t Token, onMessage func(string), onRevocation func(SubscriptionRevocation)) error {
+func ListenToTwitch(ctx context.Context, t Token, onMessage func(string, string), onRevocation func(SubscriptionRevocation)) error {
 	wsURL := "wss://eventsub.wss.twitch.tv/ws"
 
 	log.Printf("Connecting to Twitch EventSub at %s...", wsURL)
@@ -144,7 +144,7 @@ func ListenToTwitch(ctx context.Context, t Token, onMessage func(string), onRevo
 				log.Printf("Error sending echo to Twitch: %v", err)
 			} */
 
-			onMessage(notification.Event.Message.Text)
+			onMessage(notification.Event.Message.Text, notification.Event.ChatterUserName)
 
 		case "session_reconnect":
 			var reconnect SessionReconnect

@@ -41,10 +41,10 @@ func getOAuth(msg Token) pubsub.AckType {
 	return pubsub.AckTypeAck
 }
 
-func BuildCommandRouter(ch *amqp.Channel) func(msg string) {
+func BuildCommandRouter(ch *amqp.Channel) func(msg string, user string) {
 
-	return func(msg string) {
-
+	return func(msg string, user string) {
+		log.Printf("Received message from %s: %s", user, msg)
 		parts := strings.SplitN(msg, " ", 2)
 		command := strings.ToLower(parts[0])
 
@@ -53,9 +53,10 @@ func BuildCommandRouter(ch *amqp.Channel) func(msg string) {
 			args = parts[1]
 		}
 		switch command {
-		case "!gc":
+		case "!gc", "!gamechops":
 			fmt.Printf("-> Simulating GC. (Args provided: %q)\n", args)
 			err := pubsub.PublishJSON(ch, "twitch", "twitch.chat.commands.gc", Command{
+				User: user,
 				Name: "gc",
 				Args: args,
 			})
@@ -65,6 +66,7 @@ func BuildCommandRouter(ch *amqp.Channel) func(msg string) {
 		case "!recipe":
 			fmt.Printf("-> Simulating recipe command. (Args provided: %q)\n", args)
 			err := pubsub.PublishJSON(ch, "twitch", "twitch.chat.commands.recipe", Command{
+				User: user,
 				Name: "recipe",
 				Args: args,
 			})
@@ -74,6 +76,7 @@ func BuildCommandRouter(ch *amqp.Channel) func(msg string) {
 		case "!tts":
 			fmt.Printf("-> Simulating TTS command. (Args provided: %q)\n", args)
 			err := pubsub.PublishJSON(ch, "twitch", "twitch.chat.commands.tts", Command{
+				User: user,
 				Name: "tts",
 				Args: args,
 			})
@@ -84,6 +87,7 @@ func BuildCommandRouter(ch *amqp.Channel) func(msg string) {
 			fmt.Printf("-> Simulating non-command message: %q\n", msg)
 			err := pubsub.PublishJSON(ch, "twitch", "twitch.chat", ChatMessage{
 				Message: msg,
+				User: user,
 			})
 			if err != nil {
 				log.Printf("Error publishing chat message: %v", err)

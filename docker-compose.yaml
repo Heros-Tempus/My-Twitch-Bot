@@ -90,11 +90,11 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  song-request-enqueuer:
+  song-queue-manager:
     build:
       context: .
       args:
-        SERVICE_NAME: song-request-enqueuer
+        SERVICE_NAME: song-queue-manager
     restart: unless-stopped
     env_file:
       - .env
@@ -107,11 +107,11 @@ services:
       postgres:
         condition: service_healthy
 
-  song-queue-player:
+  song-player:
     build:
       context: .
       args:
-        SERVICE_NAME: song-queue-player
+        SERVICE_NAME: song-player
     restart: unless-stopped
     env_file:
       - .env
