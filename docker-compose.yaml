@@ -76,11 +76,11 @@ services:
       auth:
         condition: service_started
 
-  recipe-requester:
+  quote:
     build:
       context: .
       args:
-        SERVICE_NAME: recipe-requester
+        SERVICE_NAME: quote
     restart: unless-stopped
     env_file:
       - .env
@@ -138,21 +138,6 @@ services:
       rabbitmq:
         condition: service_healthy
       postgres:
-        condition: service_healthy
-
-  text-to-speech:
-    build:
-      context: .
-      args:
-        SERVICE_NAME: text-to-speech
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      - RABBIT_CON_STRING=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
-      - POSTGRES_CON_STRING=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
-    depends_on:
-      rabbitmq:
         condition: service_healthy
 
 volumes:

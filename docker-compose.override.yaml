@@ -11,7 +11,3 @@ services:
   chat-overlay:
     ports:
       - "8082:8080"
-
-  text-to-speech:
-    ports:
-      - "8083:8080"
