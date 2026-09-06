@@ -35,6 +35,48 @@ func (q *Queries) GetCurrentPlayback(ctx context.Context) (CurrentPlayback, erro
 	return i, err
 }
 
+const peek = `-- name: Peek :many
+SELECT t.video_id, t.url, t.track, t.artist, t.album, t.source_media, t.original_composer, t.duration_seconds, t.content_id_risk, t.enabled
+FROM queue q
+JOIN tracks t ON q.video_id = t.video_id
+ORDER BY q.position ASC
+LIMIT 5
+`
+
+func (q *Queries) Peek(ctx context.Context) ([]Track, error) {
+	rows, err := q.db.QueryContext(ctx, peek)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Track
+	for rows.Next() {
+		var i Track
+		if err := rows.Scan(
+			&i.VideoID,
+			&i.Url,
+			&i.Track,
+			&i.Artist,
+			&i.Album,
+			&i.SourceMedia,
+			&i.OriginalComposer,
+			&i.DurationSeconds,
+			&i.ContentIDRisk,
+			&i.Enabled,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const popNextTrack = `-- name: PopNextTrack :one
 WITH next_in_queue AS (
     SELECT id, video_id 

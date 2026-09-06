@@ -39,6 +39,7 @@ const (
 	ActionSkip
 	ActionClear
 	ActionShuffle
+	ActionPeek
 )
 
 type ParsedCommand struct {
@@ -313,7 +314,8 @@ func (a *App) handleChatCommand(msg Request) pubsub.AckType {
 	case ActionHelp:
 		a.rabbit.sendToChat("Usage: !gc <filters> or !gc <command>")
 		a.rabbit.sendToChat("Available filters: --track, --artist, --album, --source_media, --original_composer, --limit")
-		a.rabbit.sendToChat("Commands are mod-only: --skip, --shuffle, --clear")
+		a.rabbit.sendToChat("Available command: --peek")
+		a.rabbit.sendToChat("Mod-only commands: --skip, --shuffle, --clear")
 
 	case ActionSkip:
 		if !isMod {
@@ -333,6 +335,22 @@ func (a *App) handleChatCommand(msg Request) pubsub.AckType {
 	case ActionShuffle:
 		a.service.queries.ShuffleQueue(ctx)
 		a.rabbit.sendToChat("Queue has been shuffled!")
+
+	case ActionPeek:
+		peekedTracks, err := a.service.queries.Peek(ctx)
+		if err != nil {
+			a.rabbit.sendToChat("Failed to peek at tracks.")
+			return pubsub.AckTypeAck
+		}
+		var peekMessage []string
+		for i, track := range peekedTracks {
+			peekMessage = append(peekMessage, fmt.Sprintf("%d: %s - %s", i+1, track.Artist, track.Track))
+		}
+		if len(peekMessage) > 0 {
+			a.rabbit.sendToChat(strings.Join(peekMessage, ", "))
+		} else {
+			a.rabbit.sendToChat("No tracks in queue.")
+		}
 
 	case ActionQueue:
 		queuedTracks, err := a.service.queries.QueueRandomTracks(ctx, parsed.Params)
@@ -374,6 +392,8 @@ func ParseCommand(in Request) ParsedCommand {
 			return ParsedCommand{Action: ActionClear}
 		case "shuffle":
 			return ParsedCommand{Action: ActionShuffle}
+		case "peek":
+			return ParsedCommand{Action: ActionPeek}
 		}
 	}
 

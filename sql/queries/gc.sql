@@ -64,3 +64,10 @@ TRUNCATE TABLE queue;
 
 -- name: ClearCurrentPlayback :exec
 DELETE FROM current_playback WHERE id = 1;
+
+-- name: Peek :many
+SELECT t.*
+FROM queue q
+JOIN tracks t ON q.video_id = t.video_id
+ORDER BY q.position ASC
+LIMIT 5;
