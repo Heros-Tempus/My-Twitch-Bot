@@ -40,124 +40,130 @@ func main() {
 
 	dbQueries := database.New(db)
 	botID := os.Getenv("BOT_ID")
-
-	var oauth Oauth
-	var useEnvFallback bool
-
-	auth, err := dbQueries.GetAuth(context.Background(), botID)
-	if err != nil {
-		log.Printf("Auth not found or error reading from DB: %v", err)
-		useEnvFallback = true
-	} else {
-		oauth, err = refreshOath(Oauth{
-			BotAccountID: auth.TwitchBotAccountID,
-			OwnerID:      auth.TwitchOwnerID,
-			Token:        auth.OauthKey,
-			Refresh:      auth.OauthRefreshKey,
-			ClientID:     auth.TwitchClientID,
-			ClientSecret: auth.TwitchClientSecret,
-			ExpiresAt:    auth.OauthExpiresAt.Time,
-		})
-		if err != nil {
-			log.Printf("Failed to refresh OAuth token using DB data: %v", err)
-			useEnvFallback = true
-		}
-	}
-
-	if useEnvFallback {
-		log.Println("Falling back to .env authentication data...")
-
-		ownerID := os.Getenv("OWNER_ID")
-		clientID := os.Getenv("CLIENT_ID")
-		clientSecret := os.Getenv("CLIENT_SECRET")
-		oauthKey := os.Getenv("OAUTH_KEY")
-		oauthRefreshKey := os.Getenv("OAUTH_REFRESH_KEY")
-
-		envOauth := Oauth{
-			BotAccountID: botID,
-			OwnerID:      ownerID,
-			Token:        oauthKey,
-			Refresh:      oauthRefreshKey,
-			ClientID:     clientID,
-			ClientSecret: clientSecret,
-		}
-
-		oauth, err = refreshOath(envOauth)
-		if err != nil {
-			log.Printf("Critical: Failed to refresh OAuth token from .env: %v", err)
-			notifyRabbit(rabbitChan, envOauth, err)
-			os.Exit(1)
-		}
-
-		_, err = dbQueries.SetAuth(context.Background(), database.SetAuthParams{
-			TwitchBotAccountID: botID,
-			TwitchOwnerID:      ownerID,
-			TwitchClientID:     clientID,
-			TwitchClientSecret: clientSecret,
-			OauthKey:           oauth.Token,
-			OauthRefreshKey:    oauth.Refresh,
-		})
-		if err != nil {
-			log.Printf("Warning: Successfully authenticated via .env, but failed to save to DB: %v", err)
-		} else {
-			log.Println("Successfully saved .env authentication data to DB.")
-		}
-	}
-
-	notifyRabbit(rabbitChan, oauth, nil)
-	log.Println("OAuth service initialized successfully.")
-
-	performRefreshLogic := func(currentOauth Oauth) Oauth {
-		newOauth, err := refreshOath(currentOauth)
-		if err != nil {
-			log.Printf("Error refreshing OAuth token: %v", err)
-			notifyRabbit(rabbitChan, currentOauth, err)
-			return currentOauth
-		}
-
-		err = dbQueries.RefreshOauth(context.Background(), database.RefreshOauthParams{
-			OauthKey:           newOauth.Token,
-			OauthRefreshKey:    newOauth.Refresh,
-			TwitchBotAccountID: newOauth.BotAccountID,
-		})
-		if err != nil {
-			log.Printf("Error updating database with new OAuth token: %v", err)
-		}
-
-		notifyRabbit(rabbitChan, newOauth, nil)
-		log.Println("Successfully refreshed OAuth token.")
-		return newOauth
-	}
-
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
 	refreshChan, err := setupRefreshListener(con)
 	if err != nil {
 		log.Printf("Warning: %v", err)
 	}
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	app := newApp(dbQueries, con, rabbitChan, refreshChan)
+	app.oauth = loadOAuth(app.db, botID)
+	if app.oauth.Token == "" {
+		app.oauth = app.loadEnvOAuth(botID)
+		if app.oauth.Token == "" {
+			log.Fatal("Critical: OAuth initialization failed")
+		}
+	}
+	app.publishOAuth(nil)
+	log.Println("OAuth service initialized successfully.")
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	app.run(ctx)
+}
+
+func loadOAuth(dbQueries *database.Queries, botID string) Oauth {
+	auth, err := dbQueries.GetAuth(context.Background(), botID)
+	if err != nil {
+		log.Printf("Auth not found or error reading from DB: %v", err)
+		return Oauth{}
+	}
+	oauth, err := refreshOath(Oauth{
+		BotAccountID: auth.TwitchBotAccountID,
+		OwnerID:      auth.TwitchOwnerID,
+		Token:        auth.OauthKey,
+		Refresh:      auth.OauthRefreshKey,
+		ClientID:     auth.TwitchClientID,
+		ClientSecret: auth.TwitchClientSecret,
+		ExpiresAt:    auth.OauthExpiresAt.Time,
+	})
+	if err != nil {
+		log.Printf("Failed to refresh OAuth token using DB data: %v", err)
+		return Oauth{}
+	}
+	return oauth
+}
+
+func (a *App) loadEnvOAuth(botID string) Oauth {
+	log.Println("Falling back to .env authentication data...")
+	envOauth := Oauth{
+		BotAccountID: botID,
+		OwnerID:      os.Getenv("OWNER_ID"),
+		Token:        os.Getenv("OAUTH_KEY"),
+		Refresh:      os.Getenv("OAUTH_REFRESH_KEY"),
+		ClientID:     os.Getenv("CLIENT_ID"),
+		ClientSecret: os.Getenv("CLIENT_SECRET"),
+	}
+
+	oauth, err := refreshOath(envOauth)
+	if err != nil {
+		log.Printf("Critical: Failed to refresh OAuth token from .env: %v", err)
+		a.publishOAuth(err)
+		return Oauth{}
+	}
+
+	_, err = a.db.SetAuth(context.Background(), database.SetAuthParams{
+		TwitchBotAccountID: botID,
+		TwitchOwnerID:      envOauth.OwnerID,
+		TwitchClientID:     envOauth.ClientID,
+		TwitchClientSecret: envOauth.ClientSecret,
+		OauthKey:           oauth.Token,
+		OauthRefreshKey:    oauth.Refresh,
+	})
+	if err != nil {
+		log.Printf("Warning: Successfully authenticated via .env, but failed to save to DB: %v", err)
+	} else {
+		log.Println("Successfully saved .env authentication data to DB.")
+	}
+	return oauth
+}
+
+func (a *App) publishOAuth(err error) {
+	notifyRabbit(a.rabbitChan, a.oauth, err)
+}
+
+func (a *App) refreshOAuth() {
+	newOauth, err := refreshOath(a.oauth)
+	if err != nil {
+		log.Printf("Error refreshing OAuth token: %v", err)
+		a.publishOAuth(err)
+		return
+	}
+
+	if err := a.db.RefreshOauth(context.Background(), database.RefreshOauthParams{
+		OauthKey:           newOauth.Token,
+		OauthRefreshKey:    newOauth.Refresh,
+		TwitchBotAccountID: newOauth.BotAccountID,
+	}); err != nil {
+		log.Printf("Error updating database with new OAuth token: %v", err)
+	}
+
+	a.oauth = newOauth
+	a.publishOAuth(nil)
+	log.Println("Successfully refreshed OAuth token.")
+}
+
+func (a *App) run(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			remaining := time.Until(oauth.ExpiresAt)
-			if oauth.ExpiresAt.Before(time.Now().Add(10 * time.Minute)) {
+			remaining := time.Until(a.oauth.ExpiresAt)
+			if a.oauth.ExpiresAt.Before(time.Now().Add(10 * time.Minute)) {
 				log.Printf("Token expiring in %v. Refreshing OAuth token...", remaining.Round(time.Second))
-				oauth = performRefreshLogic(oauth)
+				a.refreshOAuth()
 			} else {
 				log.Printf("OAuth service healthy. Token active for another %v", remaining.Round(time.Second))
 			}
 
-		case <-refreshChan:
+		case <-a.refreshChan:
 			log.Println("Received immediate refresh request from microservice. Refreshing...")
-			oauth = performRefreshLogic(oauth)
+			a.refreshOAuth()
 
-		case sig := <-sigChan:
-			log.Println("Received interrupt signal. Shutting down...", sig)
-			os.Exit(0)
+		case <-ctx.Done():
+			log.Println("Received shutdown signal. Shutting down...")
+			return
 		}
 	}
 }
