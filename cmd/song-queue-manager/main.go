@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -17,72 +16,7 @@ import (
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
-	amqp "github.com/rabbitmq/amqp091-go"
 )
-
-type Service struct {
-	db      *sql.DB
-	queries *database.Queries
-}
-
-type Request struct {
-	User string `json:"user"`
-	Name string `json:"name"`
-	Args string `json:"args"`
-}
-
-type Action int
-
-const (
-	ActionQueue Action = iota
-	ActionHelp
-	ActionSkip
-	ActionClear
-	ActionShuffle
-	ActionPeek
-)
-
-type ParsedCommand struct {
-	Action Action
-	Params database.QueueRandomTracksParams
-}
-
-type Track struct {
-	Artist           string
-	Track            string
-	SourceMedia      string
-	Album            string
-	OriginalComposer string
-}
-
-type RabbitClient struct {
-	ch *amqp.Channel
-}
-
-type ChatPayload struct {
-	Message string `json:"message"`
-	User    string `json:"user"`
-}
-
-type PlayerStatusResponse struct {
-	Status        string `json:"status"`
-	TimeRemaining int32  `json:"time_remaining,omitempty"`
-}
-
-type PlayerTrackPayload struct {
-	Url               string `json:"url"`
-	Duration          int32  `json:"duration"`
-	AttributionString string `json:"attribution_string"`
-}
-
-type EmptySignal struct{}
-
-type App struct {
-	rabbit  *RabbitClient
-	service *Service
-	mu      sync.Mutex
-	isIdle  bool
-}
 
 func main() {
 	_ = godotenv.Load(".env")
@@ -151,79 +85,6 @@ func main() {
 		log.Printf("Failed to complete StopAndWipe during shutdown: %v", err)
 	} else {
 		log.Println("StopAndWipe completed successfully.")
-	}
-}
-
-func NewService(dbConn *sql.DB) *Service {
-	return &Service{
-		db:      dbConn,
-		queries: database.New(dbConn),
-	}
-}
-
-func setupRabbitMQSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App) error {
-	err := pubsub.DeclareExchange(ch, "player", "topic")
-	if err != nil {
-		return fmt.Errorf("Error declaring player exchange: %w", err)
-	}
-	err = pubsub.DeclareExchange(ch, "twitch", "topic")
-	if err != nil {
-		return fmt.Errorf("Error declaring Twitch exchange: %w", err)
-	}
-	err = pubsub.SubscribeJSON(con, "twitch", "song-queue-manager.commands.gc", "twitch.chat.commands.gc", pubsub.SimpleQueueTypeDurable, app.handleChatCommand)
-	if err != nil {
-		return fmt.Errorf("Error subscribing to chat commands: %w", err)
-	}
-
-	err = pubsub.SubscribeJSON(con, "player", "player.requests.status", "player.signals.status_request", pubsub.SimpleQueueTypeDurable, app.handlePlayerStatusRequest)
-	if err != nil {
-		return fmt.Errorf("Error subscribing to player status requests: %w", err)
-	}
-
-	err = pubsub.SubscribeJSON(con, "player", "player.requests.ready", "player.signals.ready", pubsub.SimpleQueueTypeDurable, app.handlePlayerReady)
-	if err != nil {
-		return fmt.Errorf("Error subscribing to player ready signals: %w", err)
-	}
-
-	return nil
-}
-
-func (r *RabbitClient) sendToChat(message string) {
-	const exchange = "twitch"
-	const key = "twitch.chat.send"
-	const user = "test user"
-	err := pubsub.PublishJSON(r.ch, exchange, key, ChatPayload{Message: message, User: user})
-	if err != nil {
-		log.Printf("Failed to send message to chat: %v", err)
-	}
-	log.Println(message)
-}
-
-func (r *RabbitClient) Skip() {
-	const exchange = "player"
-	const key = "player.action.skip"
-	err := pubsub.PublishJSON(r.ch, exchange, key, struct{}{})
-	if err != nil {
-		log.Printf("Failed to publish skip signal: %v", err)
-	}
-}
-
-func (r *RabbitClient) SendPlayerStatus(status string, timeRemaining int32) {
-	const exchange = "player"
-	const key = "player.status.response"
-	payload := PlayerStatusResponse{Status: status, TimeRemaining: timeRemaining}
-
-	if err := pubsub.PublishJSON(r.ch, exchange, key, payload); err != nil {
-		log.Printf("Failed to send player status: %v", err)
-	}
-}
-
-func (r *RabbitClient) SendNextTrack(payload PlayerTrackPayload) {
-	const exchange = "player"
-	const key = "player.track.next"
-
-	if err := pubsub.PublishJSON(r.ch, exchange, key, payload); err != nil {
-		log.Printf("Failed to send next track to player: %v", err)
 	}
 }
 
