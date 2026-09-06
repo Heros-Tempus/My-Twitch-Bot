@@ -15,11 +15,14 @@ func notifyRabbit(chann *amqp.Channel, token Oauth, err error) {
 			return
 		}
 	}
-	fmt.Printf("Publishing OAuth token to RabbitMQ: %+v\n", token)
+
 	if pubErr := pubsub.PublishJSON(chann, "twitch", "auth.refreshed.listener", token); pubErr != nil {
 		log.Println("Error publishing OAuth token to RabbitMQ:", pubErr)
 	}
 	if pubErr := pubsub.PublishJSON(chann, "twitch", "auth.refreshed.writer", token); pubErr != nil {
+		log.Println("Error publishing OAuth token to RabbitMQ:", pubErr)
+	}
+	if pubErr := pubsub.PublishJSON(chann, "twitch", "auth.refreshed.overlay", token); pubErr != nil {
 		log.Println("Error publishing OAuth token to RabbitMQ:", pubErr)
 	}
 	log.Println("Successfully published OAuth token to RabbitMQ.")
@@ -79,6 +82,11 @@ func setupRabbitMQ(uri string) (*amqp.Connection, *amqp.Channel, error) {
 		log.Fatal("Error declaring auth.refreshed.writer queue:", err)
 	}
 	log.Println("Declared and bound auth.refreshed.writer queue")
+
+	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch", "auth.refreshed.overlay", "auth.refreshed.overlay"); err != nil {
+		log.Fatal("Error declaring auth.refreshed.overlay queue:", err)
+	}
+	log.Println("Declared and bound auth.refreshed.overlay queue")
 
 	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch", "auth", "auth.failed"); err != nil {
 		log.Fatal("Error declaring auth.failed queue:", err)

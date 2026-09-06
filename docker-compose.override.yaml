@@ -10,4 +10,4 @@ services:
       
   chat-overlay:
     ports:
-      - "8082:8080"
+      - "8080:8080"

@@ -60,7 +60,7 @@ func SubscribeToChat(sessionID string, t Token) error {
 	return nil
 }
 
-func ListenToTwitch(ctx context.Context, t Token, onMessage func(string, string), onRevocation func(SubscriptionRevocation), invalidateToken func() bool) error {
+func ListenToTwitch(ctx context.Context, t Token, onMessage func(string, string, OverlayMessage), onRevocation func(SubscriptionRevocation), invalidateToken func() bool) error {
 	wsURL := "wss://eventsub.wss.twitch.tv/ws"
 
 	log.Printf("Connecting to Twitch EventSub at %s...", wsURL)
@@ -144,7 +144,7 @@ func ListenToTwitch(ctx context.Context, t Token, onMessage func(string, string)
 				log.Printf("Error sending echo to Twitch: %v", err)
 			} */
 
-			onMessage(notification.Event.Message.Text, notification.Event.ChatterUserName)
+			onMessage(notification.Event.Message.Text, notification.Event.ChatterUserName, MapTwitchToOverlay(notification.Event))
 
 		case "session_reconnect":
 			var reconnect SessionReconnect
@@ -181,4 +181,40 @@ func ListenToTwitch(ctx context.Context, t Token, onMessage func(string, string)
 			log.Printf("Received unhandled message type: %s", env.Metadata.MessageType)
 		}
 	}
+}
+
+func MapTwitchToOverlay(event TwitchChatMessageEvent) OverlayMessage {
+	msg := OverlayMessage{
+		UserID:      event.ChatterUserID,
+		DisplayName: event.ChatterUserName,
+		Color:       event.Color,
+		RawText:     event.Message.Text,
+		Badges:      make([]ChatBadge, len(event.Badges)),
+		Fragments:   make([]ChatFragment, len(event.Message.Fragments)),
+	}
+
+	// 1. Map Badges
+	for i, b := range event.Badges {
+		msg.Badges[i] = ChatBadge{
+			SetID: b.SetID,
+			ID:    b.ID,
+		}
+	}
+
+	// 2. Flatten Fragments
+	for i, f := range event.Message.Fragments {
+		frag := ChatFragment{
+			Type: f.Type,
+			Text: f.Text,
+		}
+
+		// If Twitch flagged it as an emote, extract the ID from the nested pointer
+		if f.Type == "emote" && f.Emote != nil {
+			frag.EmoteID = f.Emote.ID
+		}
+
+		msg.Fragments[i] = frag
+	}
+
+	return msg
 }

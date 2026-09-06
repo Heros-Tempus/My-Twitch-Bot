@@ -119,17 +119,31 @@ type SessionReconnect struct {
 		ReconnectURL string `json:"reconnect_url"`
 	} `json:"session"`
 }
-
 type ChatNotification struct {
-	Event struct {
-		BroadcasterUserID   string `json:"broadcaster_user_id"`
-		BroadcasterUserName string `json:"broadcaster_user_name"`
-		ChatterUserID       string `json:"chatter_user_id"`
-		ChatterUserName     string `json:"chatter_user_name"`
-		Message             struct {
-			Text string `json:"text"`
-		} `json:"message"`
-	} `json:"event"`
+	Event TwitchChatMessageEvent `json:"event"`
+}
+
+type TwitchChatMessageEvent struct {
+	BroadcasterUserID   string `json:"broadcaster_user_id"`
+	BroadcasterUserName string `json:"broadcaster_user_name"`
+	ChatterUserID       string `json:"chatter_user_id"`
+	ChatterUserName     string `json:"chatter_user_name"`
+	Color               string `json:"color"`
+	MessageType         string `json:"message_type"`
+	Badges              []struct {
+		SetID string `json:"set_id"`
+		ID    string `json:"id"`
+	} `json:"badges"`
+	Message struct {
+		Text      string `json:"text"`
+		Fragments []struct {
+			Type  string `json:"type"`
+			Text  string `json:"text"`
+			Emote *struct {
+				ID string `json:"id"`
+			} `json:"emote"`
+		} `json:"fragments"`
+	} `json:"message"`
 }
 
 type Token struct {
@@ -140,4 +154,27 @@ type Token struct {
 	ClientID     string
 	ClientSecret string
 	ExpiresAt    time.Time
+}
+
+type OverlayMessage struct {
+	UserID      string         `json:"user_id"`
+	DisplayName string         `json:"display_name"`
+	Color       string         `json:"color"`
+	Badges      []ChatBadge    `json:"badges"`
+	RawText     string         `json:"raw_text"`
+	Fragments   []ChatFragment `json:"fragments"`
+	Effects     []string       `json:"effects,omitempty"` // Populated by the overlay service
+}
+
+type ChatBadge struct {
+	SetID    string `json:"set_id"`
+	ID       string `json:"id"`
+	ImageURL string `json:"image_url,omitempty"`
+}
+
+type ChatFragment struct {
+	Type     string `json:"type"`
+	Text     string `json:"text"`
+	EmoteID  string `json:"emote_id,omitempty"`  // Flattened from Twitch's nested struct
+	ImageURL string `json:"image_url,omitempty"` // Used later by overlay for 7TV/BTTV
 }

@@ -37,9 +37,9 @@ func (a *App) getOAuth(msg Token) pubsub.AckType {
 	return pubsub.AckTypeAck
 }
 
-func BuildCommandRouter(ch *amqp.Channel) func(msg string, user string) {
+func BuildCommandRouter(ch *amqp.Channel) func(msg string, user string, m OverlayMessage) {
 
-	return func(msg string, user string) {
+	return func(msg string, user string, m OverlayMessage) {
 		log.Printf("Received message from %s: %s", user, msg)
 		parts := strings.SplitN(msg, " ", 2)
 		command := strings.ToLower(parts[0])
@@ -81,10 +81,7 @@ func BuildCommandRouter(ch *amqp.Channel) func(msg string, user string) {
 			}
 		default:
 			fmt.Printf("-> Simulating non-command message: %q\n", msg)
-			err := pubsub.PublishJSON(ch, "twitch", "twitch.chat.send", ChatMessage{
-				Message: msg,
-				User:    user,
-			})
+			err := pubsub.PublishJSON(ch, "twitch", "twitch.chat.overlay.send", m)
 			if err != nil {
 				log.Printf("Error publishing chat message: %v", err)
 			}
