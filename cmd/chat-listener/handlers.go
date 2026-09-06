@@ -85,9 +85,9 @@ func BuildCommandRouter(ch *amqp.Channel) func(msg string, user string) {
 			}
 		default:
 			fmt.Printf("-> Simulating non-command message: %q\n", msg)
-			err := pubsub.PublishJSON(ch, "twitch", "twitch.chat", ChatMessage{
+			err := pubsub.PublishJSON(ch, "twitch", "twitch.chat.send", ChatMessage{
 				Message: msg,
-				User: user,
+				User:    user,
 			})
 			if err != nil {
 				log.Printf("Error publishing chat message: %v", err)

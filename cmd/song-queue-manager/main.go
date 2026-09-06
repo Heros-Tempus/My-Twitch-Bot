@@ -60,6 +60,7 @@ type RabbitClient struct {
 
 type ChatPayload struct {
 	Message string `json:"message"`
+	User    string `json:"user"`
 }
 
 type PlayerStatusResponse struct {
@@ -73,13 +74,13 @@ type PlayerTrackPayload struct {
 	AttributionString string `json:"attribution_string"`
 }
 
-type EmptySignal struct{} 
+type EmptySignal struct{}
 
 type App struct {
 	rabbit  *RabbitClient
 	service *Service
 	mu      sync.Mutex
-	isIdle  bool       
+	isIdle  bool
 }
 
 func main() {
@@ -101,7 +102,7 @@ func main() {
 
 	rabbitConString := os.Getenv("RABBIT_CON_STRING")
 	log.Printf("RabbitMQ connection string: %s", rabbitConString)
-	
+
 	con, err := pubsub.ConnectWithBackoff(rabbitConString, 5)
 	if err != nil {
 		log.Fatal("Error connecting to RabbitMQ:", err)
@@ -136,7 +137,7 @@ func main() {
 	defer stop()
 
 	log.Println("Bot is running. Waiting for shutdown signal...")
-	
+
 	<-ctx.Done()
 
 	log.Println("Shutdown signal received. Initiating graceful shutdown...")
@@ -164,13 +165,13 @@ func setupRabbitMQSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App
 	if err != nil {
 		return fmt.Errorf("Error declaring player exchange: %w", err)
 	}
-	err = pubsub.SubscribeJSON(con, "twitch", "twitch.chat", "twitch.chat.commands.gc", pubsub.SimpleQueueTypeDurable, app.handleChatCommand)
+	err = pubsub.DeclareExchange(ch, "twitch", "topic")
+	if err != nil {
+		return fmt.Errorf("Error declaring Twitch exchange: %w", err)
+	}
+	err = pubsub.SubscribeJSON(con, "twitch", "song-queue-manager.commands.gc", "twitch.chat.commands.gc", pubsub.SimpleQueueTypeDurable, app.handleChatCommand)
 	if err != nil {
 		return fmt.Errorf("Error subscribing to chat commands: %w", err)
-	}
-	err = pubsub.DeclareAndBindQueue(ch, "twitch", "twitch.chat", "twitch.chat")
-	if err != nil {
-		return fmt.Errorf("Error declaring/binding chat queue: %w", err)
 	}
 
 	err = pubsub.SubscribeJSON(con, "player", "player.requests.status", "player.signals.status_request", pubsub.SimpleQueueTypeDurable, app.handlePlayerStatusRequest)
@@ -186,11 +187,11 @@ func setupRabbitMQSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App
 	return nil
 }
 
-
 func (r *RabbitClient) sendToChat(message string) {
 	const exchange = "twitch"
 	const key = "twitch.chat.send"
-	err := pubsub.PublishJSON(r.ch, exchange, key, ChatPayload{Message: message})
+	const user = "test user"
+	err := pubsub.PublishJSON(r.ch, exchange, key, ChatPayload{Message: message, User: user})
 	if err != nil {
 		log.Printf("Failed to send message to chat: %v", err)
 	}
@@ -210,7 +211,7 @@ func (r *RabbitClient) SendPlayerStatus(status string, timeRemaining int32) {
 	const exchange = "player"
 	const key = "player.status.response"
 	payload := PlayerStatusResponse{Status: status, TimeRemaining: timeRemaining}
-	
+
 	if err := pubsub.PublishJSON(r.ch, exchange, key, payload); err != nil {
 		log.Printf("Failed to send player status: %v", err)
 	}
@@ -219,7 +220,7 @@ func (r *RabbitClient) SendPlayerStatus(status string, timeRemaining int32) {
 func (r *RabbitClient) SendNextTrack(payload PlayerTrackPayload) {
 	const exchange = "player"
 	const key = "player.track.next"
-	
+
 	if err := pubsub.PublishJSON(r.ch, exchange, key, payload); err != nil {
 		log.Printf("Failed to send next track to player: %v", err)
 	}
@@ -241,7 +242,7 @@ func (a *App) handlePlayerStatusRequest(msg EmptySignal) pubsub.AckType {
 
 	elapsedSeconds := int32(time.Since(playback.StartedAt.Time).Seconds())
 	remaining := playback.DurationSeconds.Int32 - elapsedSeconds
-	
+
 	if remaining <= 0 {
 		a.isIdle = true
 		go a.popAndPlayNextTrack(ctx)
@@ -273,7 +274,7 @@ func (a *App) popAndPlayNextTrack(ctx context.Context) {
 	}
 
 	a.isIdle = false
-	
+
 	_ = a.service.queries.TrackCurrentPlayback(ctx, database.TrackCurrentPlaybackParams{
 		VideoID:         sql.NullString{String: trackData.Url, Valid: true},
 		DurationSeconds: trackData.DurationSeconds,
@@ -294,11 +295,12 @@ func (a *App) popAndPlayNextTrack(ctx context.Context) {
 	}
 
 	payload := PlayerTrackPayload{
-		Url:               trackData.Url,
+		Url:               trackData.ID,
 		Duration:          trackData.DurationSeconds.Int32,
 		AttributionString: buildAttribution(t),
 	}
 	a.rabbit.SendNextTrack(payload)
+	a.rabbit.sendToChat("Now playing: " + payload.AttributionString)
 }
 
 func (a *App) handleChatCommand(msg Request) pubsub.AckType {
@@ -309,7 +311,9 @@ func (a *App) handleChatCommand(msg Request) pubsub.AckType {
 	log.Printf("Parsed command from %s using args %s: %+v", msg.User, msg.Args, parsed)
 	switch parsed.Action {
 	case ActionHelp:
-		a.rabbit.sendToChat("Available commands: --album, --limit, --skip, --clear...")
+		a.rabbit.sendToChat("Usage: !gc <filters> or !gc <command>")
+		a.rabbit.sendToChat("Available filters: --track, --artist, --album, --source_media, --original_composer, --limit")
+		a.rabbit.sendToChat("Commands are mod-only: --skip, --shuffle, --clear")
 
 	case ActionSkip:
 		if !isMod {
@@ -336,20 +340,19 @@ func (a *App) handleChatCommand(msg Request) pubsub.AckType {
 			a.rabbit.sendToChat("Failed to queue tracks.")
 			return pubsub.AckTypeAck
 		}
-		
+
 		a.rabbit.sendToChat(fmt.Sprintf("Queued %d tracks!", len(queuedTracks)))
 
 		a.mu.Lock()
 		idle := a.isIdle
 		a.mu.Unlock()
-		
+
 		if idle {
 			go a.popAndPlayNextTrack(ctx)
 		}
 	}
 	return pubsub.AckTypeAck
 }
-
 
 func ParseCommand(in Request) ParsedCommand {
 	parts := strings.Split(in.Args, "--")
@@ -425,7 +428,6 @@ func (s *Service) StopAndWipe(ctx context.Context) error {
 	}
 	defer tx.Rollback()
 
-	
 	qtx := s.queries.WithTx(tx)
 
 	if err := qtx.TruncateQueue(ctx); err != nil {
@@ -434,23 +436,22 @@ func (s *Service) StopAndWipe(ctx context.Context) error {
 	if err := qtx.ClearCurrentPlayback(ctx); err != nil {
 		return err
 	}
-	
 
 	return tx.Commit()
 }
 
 func buildAttribution(t Track) string {
 	var parts []string
-	parts = append(parts, fmt.Sprintf("%s - %s", t.Artist, t.Track))
+	parts = append(parts, fmt.Sprintf("%s - %s\n", t.Artist, t.Track))
 
 	if t.SourceMedia != "" {
-		parts = append(parts, fmt.Sprintf("(%s)", t.SourceMedia))
+		parts = append(parts, fmt.Sprintf("Source media: (%s)\n", t.SourceMedia))
 	}
 	if t.Album != "" {
-		parts = append(parts, fmt.Sprintf("[%s]", t.Album))
+		parts = append(parts, fmt.Sprintf("Album: [%s]\n", t.Album))
 	}
 	if t.OriginalComposer != "" {
-		parts = append(parts, fmt.Sprintf("composed by %s", t.OriginalComposer))
+		parts = append(parts, fmt.Sprintf("Composed by: %s\n", t.OriginalComposer))
 	}
 
 	return strings.Join(parts, " ")

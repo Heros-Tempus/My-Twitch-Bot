@@ -34,6 +34,7 @@ popped_queue AS (
     RETURNING video_id
 )
 SELECT 
+    t.video_id as id,
     t.url, 
     t.duration_seconds, 
     t.track, 

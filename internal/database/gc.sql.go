@@ -49,6 +49,7 @@ popped_queue AS (
     RETURNING video_id
 )
 SELECT 
+    t.video_id as id,
     t.url, 
     t.duration_seconds, 
     t.track, 
@@ -61,6 +62,7 @@ JOIN tracks t ON q.video_id = t.video_id
 `
 
 type PopNextTrackRow struct {
+	ID               string
 	Url              string
 	DurationSeconds  sql.NullInt32
 	Track            string
@@ -74,6 +76,7 @@ func (q *Queries) PopNextTrack(ctx context.Context) (PopNextTrackRow, error) {
 	row := q.db.QueryRowContext(ctx, popNextTrack)
 	var i PopNextTrackRow
 	err := row.Scan(
+		&i.ID,
 		&i.Url,
 		&i.DurationSeconds,
 		&i.Track,

@@ -70,12 +70,12 @@ func setupRabbitMQ(uri string) (*amqp.Connection, *amqp.Channel, error) {
 	}
 	log.Println("Declared RabbitMQ direct exchange for incoming requests")
 
-	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch", "auth", "auth.refreshed.listener"); err != nil {
+	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch", "auth.refreshed.listener", "auth.refreshed.listener"); err != nil {
 		log.Fatal("Error declaring auth.refreshed.listener queue:", err)
 	}
 	log.Println("Declared and bound auth.refreshed.listener queue")
 
-	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch", "auth", "auth.refreshed.writer"); err != nil {
+	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch", "auth.refreshed.writer", "auth.refreshed.writer"); err != nil {
 		log.Fatal("Error declaring auth.refreshed.writer queue:", err)
 	}
 	log.Println("Declared and bound auth.refreshed.writer queue")

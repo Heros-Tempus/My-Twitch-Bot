@@ -49,7 +49,7 @@ func main() {
 	obsHost := os.Getenv("OBS_IP")
 	obsPort := os.Getenv("OBS_PORT")
 	obsPassword := os.Getenv("OBS_PASSWORD")
-	
+
 	obsClient, err := goobs.New(fmt.Sprintf("%s:%s", obsHost, obsPort), goobs.WithPassword(obsPassword))
 	if err != nil {
 		log.Fatal("Failed to connect to OBS:", err)
@@ -106,6 +106,7 @@ func main() {
 }
 
 func setupSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App) {
+	_ = pubsub.DeclareExchange(ch, "player", "topic")
 	_ = pubsub.SubscribeJSON(con, "player", "player.responses.track", "player.track.next", pubsub.SimpleQueueTypeDurable, func(payload PlayerTrackPayload) pubsub.AckType {
 		app.trackChan <- payload
 		return pubsub.AckTypeAck
@@ -131,7 +132,7 @@ func (a *App) runEventLoop(ctx context.Context) {
 		case status := <-a.statusChan:
 			if status.Status == "playback" {
 				log.Printf("Resuming playback, %d seconds remaining", status.TimeRemaining)
-				
+
 				if timer != nil {
 					timer.Stop()
 				}
@@ -144,7 +145,7 @@ func (a *App) runEventLoop(ctx context.Context) {
 
 		case track := <-a.trackChan:
 			log.Printf("Playing track: %s (%ds)", track.AttributionString, track.Duration)
-			
+
 			a.setObsActive(track.Url, track.AttributionString)
 
 			if timer != nil {
@@ -176,7 +177,6 @@ func (a *App) runEventLoop(ctx context.Context) {
 	}
 }
 
-
 func (a *App) setObsIdle() {
 	hidden := false
 	_, _ = a.obs.SceneItems.SetSceneItemEnabled(&sceneitems.SetSceneItemEnabledParams{
@@ -202,6 +202,7 @@ func (a *App) setObsIdle() {
 }
 
 func (a *App) setObsActive(url, attribution string) {
+	url = "http://localhost:8000/yt.html?v=" + url
 	_, err := a.obs.Inputs.SetInputSettings(&inputs.SetInputSettingsParams{
 		InputName:     &a.browserSource,
 		InputSettings: map[string]interface{}{"url": url},
