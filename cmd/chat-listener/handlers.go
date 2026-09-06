@@ -9,32 +9,28 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func getOAuth(msg Token) pubsub.AckType {
+func (a *App) getOAuth(msg Token) pubsub.AckType {
 	if msg.Token == "" {
-		tokenStore.Revoke()
+		a.revokeToken()
 		log.Println("Received error signal from Auth, shutting down")
 		return pubsub.AckTypeAck
 	}
 
-	updated := tokenStore.UpdateIfNewer(msg)
+	updated := a.updateToken(msg)
 	if !updated {
 		log.Println("Received token older than current token")
 	} else {
 		log.Printf("OAuth refreshed for bot account %s", msg.BotAccountID)
 
 		isFirstToken := false
-		firstTokenOnce.Do(func() {
-			close(firstTokenReceived)
+		a.firstTokenOnce.Do(func() {
+			close(a.firstTokenReceived)
 			isFirstToken = true
 		})
 
 		if !isFirstToken {
-			ConnCancelMu.Lock()
-			if CurrentConnCancel != nil {
-				log.Println("Token rotated. Signaling WebSocket to reconnect...")
-				CurrentConnCancel()
-			}
-			ConnCancelMu.Unlock()
+			log.Println("Token rotated. Signaling WebSocket to reconnect...")
+			a.cancelConnection()
 		}
 	}
 

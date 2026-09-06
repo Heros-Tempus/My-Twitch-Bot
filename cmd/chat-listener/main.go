@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -13,30 +12,24 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var tokenStore = &TokenContainer{}
-var firstTokenOnce sync.Once
-var firstTokenReceived = make(chan struct{})
-
-func GetValidToken() (Token, bool) {
-	return tokenStore.Get()
-}
-
 func main() {
 	_ = godotenv.Load(".env")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	app := newApp()
 	rabbitConString := os.Getenv("RABBIT_CON_STRING")
-	ch, err := setupRabbitMQ(rabbitConString)
+	ch, err := setupRabbitMQ(rabbitConString, app.getOAuth)
 	if err != nil {
 		log.Fatalf("Error setting up RabbitMQ: %v", err)
 	}
 	defer ch.Close()
+	app.rabbit = ch
 
 	log.Println("Waiting for first token...")
 	select {
-	case <-firstTokenReceived:
+	case <-app.firstTokenReceived:
 		log.Println("First Token Received.")
 	case <-ctx.Done():
 		log.Println("Shutting down before token received.")
@@ -53,7 +46,7 @@ func main() {
 			log.Println("Bot is shutting down...")
 			break
 		}
-		tkn, valid := GetValidToken()
+		tkn, valid := app.getToken()
 		if !valid {
 			log.Println("Token is currently invalid or revoked. Waiting before retry...")
 			select {
@@ -64,19 +57,17 @@ func main() {
 		}
 		connCtx, cancelConn := context.WithCancel(ctx)
 
-		ConnCancelMu.Lock()
-		CurrentConnCancel = cancelConn
-		ConnCancelMu.Unlock()
+		app.setConnectionCancel(cancelConn)
 
 		connectionStartTime := time.Now()
-		routeHandler := BuildCommandRouter(ch)
+		routeHandler := BuildCommandRouter(app.rabbit)
 		revocationHandler := func(revocation SubscriptionRevocation) {
 			err := pubsub.PublishJSON(ch, "auth.requests", "auth.refresh.request", revocation)
 			if err != nil {
 				log.Printf("Error publishing revocation: %v", err)
 			}
 		}
-		err := ListenToTwitch(connCtx, tkn, routeHandler, revocationHandler)
+		err := ListenToTwitch(connCtx, tkn, routeHandler, revocationHandler, app.invalidateForRefresh)
 
 		cancelConn()
 

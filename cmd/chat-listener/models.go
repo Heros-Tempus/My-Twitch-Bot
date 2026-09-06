@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"sync"
 	"time"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type Command struct {
@@ -18,11 +20,75 @@ type ChatMessage struct {
 	Message string
 }
 
-var (
-	CurrentConnCancel context.CancelFunc
-	ConnCancelMu      sync.Mutex
-)
-	
+type App struct {
+	rabbit *amqp.Channel
+
+	tokenMu       sync.RWMutex
+	token         Token
+	hasValidToken bool
+	isRevoked     bool
+
+	firstTokenOnce     sync.Once
+	firstTokenReceived chan struct{}
+
+	connMu     sync.Mutex
+	connCancel context.CancelFunc
+}
+
+func newApp() *App {
+	return &App{
+		firstTokenReceived: make(chan struct{}),
+	}
+}
+
+func (a *App) getToken() (Token, bool) {
+	a.tokenMu.RLock()
+	defer a.tokenMu.RUnlock()
+	return a.token, a.hasValidToken
+}
+
+func (a *App) updateToken(msg Token) bool {
+	a.tokenMu.Lock()
+	defer a.tokenMu.Unlock()
+	if a.isRevoked || (a.hasValidToken && a.token.ExpiresAt.After(msg.ExpiresAt)) {
+		return false
+	}
+	a.token = msg
+	a.hasValidToken = true
+	return true
+}
+
+func (a *App) revokeToken() {
+	a.tokenMu.Lock()
+	defer a.tokenMu.Unlock()
+	a.hasValidToken = false
+	a.isRevoked = true
+}
+
+func (a *App) invalidateForRefresh() bool {
+	a.tokenMu.Lock()
+	defer a.tokenMu.Unlock()
+	if a.isRevoked || !a.hasValidToken {
+		return false
+	}
+	a.hasValidToken = false
+	return true
+}
+
+func (a *App) setConnectionCancel(cancel context.CancelFunc) {
+	a.connMu.Lock()
+	defer a.connMu.Unlock()
+	a.connCancel = cancel
+}
+
+func (a *App) cancelConnection() {
+	a.connMu.Lock()
+	defer a.connMu.Unlock()
+	if a.connCancel != nil {
+		a.connCancel()
+	}
+}
+
 type SubscriptionRevocation struct {
 	Subscription struct {
 		ID        string    `json:"id"`
@@ -74,54 +140,4 @@ type Token struct {
 	ClientID     string
 	ClientSecret string
 	ExpiresAt    time.Time
-}
-
-type TokenContainer struct {
-	mu            sync.RWMutex
-	hasValidToken bool
-	isRevoked     bool
-	token         Token
-}
-
-func (t *TokenContainer) Get() (Token, bool) {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
-	return t.token, t.hasValidToken
-}
-
-func (t *TokenContainer) Revoke() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.hasValidToken = false
-	t.isRevoked = true
-}
-
-func (t *TokenContainer) InvalidateForRefresh() bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.isRevoked {
-		return false
-	}
-	if t.hasValidToken {
-		t.hasValidToken = false
-		return true
-	}
-	return false
-}
-
-func (t *TokenContainer) UpdateIfNewer(msg Token) bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	if t.isRevoked {
-		return false
-	}
-
-	if t.hasValidToken && t.token.ExpiresAt.After(msg.ExpiresAt) {
-		return false
-	}
-
-	t.token = msg
-	t.hasValidToken = true
-	return true
 }

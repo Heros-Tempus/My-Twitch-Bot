@@ -60,7 +60,7 @@ func SubscribeToChat(sessionID string, t Token) error {
 	return nil
 }
 
-func ListenToTwitch(ctx context.Context, t Token, onMessage func(string, string), onRevocation func(SubscriptionRevocation)) error {
+func ListenToTwitch(ctx context.Context, t Token, onMessage func(string, string), onRevocation func(SubscriptionRevocation), invalidateToken func() bool) error {
 	wsURL := "wss://eventsub.wss.twitch.tv/ws"
 
 	log.Printf("Connecting to Twitch EventSub at %s...", wsURL)
@@ -173,7 +173,7 @@ func ListenToTwitch(ctx context.Context, t Token, onMessage func(string, string)
 				continue
 			}
 			log.Printf("Subscription revoked. Type: %s, Status: %s", revocation.Subscription.Type, revocation.Subscription.Status)
-			if tokenStore.InvalidateForRefresh() {
+			if invalidateToken() {
 				onRevocation(revocation)
 			}
 			return fmt.Errorf("subscription revoked (status: %s)", revocation.Subscription.Status)
