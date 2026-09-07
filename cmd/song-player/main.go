@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"log"
+	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -27,6 +31,8 @@ func main() {
 	}
 	defer obsClient.Disconnect()
 	log.Println("Connected to OBS WebSocket")
+
+	startFileServer()
 
 	rabbitConString := os.Getenv("RABBIT_CON_STRING")
 	con, err := pubsub.ConnectWithBackoff(rabbitConString, 5)
@@ -74,4 +80,31 @@ func main() {
 	app.runEventLoop(ctx)
 
 	log.Println("Player shut down gracefully.")
+}
+
+//go:embed yt.html
+var ytHTML []byte
+
+func startFileServer() {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/yt.html", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(ytHTML)
+	})
+	go func() {
+		log.Println("serving yt.html on :8000")
+		log.Fatal(http.ListenAndServe("0.0.0.0:8000", mux))
+	}()
+}
+
+func buildBrowserSourceURL(host, videoID string) string {
+	u := url.URL{
+		Scheme: "http",
+		Host:   net.JoinHostPort(host, "8000"),
+		Path:   "/yt.html",
+	}
+	q := u.Query()
+	q.Set("v", videoID)
+	u.RawQuery = q.Encode()
+	return u.String()
 }

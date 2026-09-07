@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 	"time"
 
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
@@ -89,7 +90,7 @@ func (a *App) setObsIdle() {
 }
 
 func (a *App) setObsActive(url, attribution string) {
-	url = "http://localhost:8000/yt.html?v=" + url
+	url = buildBrowserSourceURL(os.Getenv("DESKTOP_IP"), url)
 	_, err := a.obs.Inputs.SetInputSettings(&inputs.SetInputSettingsParams{
 		InputName:     &a.browserSource,
 		InputSettings: map[string]interface{}{"url": url},
