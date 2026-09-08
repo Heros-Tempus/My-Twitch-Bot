@@ -31,8 +31,6 @@ func (a *App) handleAuthFailure(msg Oauth) pubsub.AckType {
 }
 
 func (a *App) handleIncomingMessage(msg OverlayMessage) pubsub.AckType {
-	a.parseEffects(&msg)
-
 	a.Cache.mu.RLock()
 
 	for i, badge := range msg.Badges {
@@ -45,6 +43,8 @@ func (a *App) handleIncomingMessage(msg OverlayMessage) pubsub.AckType {
 	msg.Fragments = enrichFragments(msg.Fragments, a.Cache)
 
 	a.Cache.mu.RUnlock()
+
+	a.parseEffects(&msg)
 
 	payload, err := json.Marshal(msg)
 	if err == nil {
@@ -76,13 +76,30 @@ func (a *App) parseEffects(msg *OverlayMessage) {
 
 	for i, frag := range msg.Fragments {
 		if frag.Type == "text" {
-			cleanedText := frag.Text
-			for trigger := range activeEffects {
-				cleanedText = strings.ReplaceAll(strings.ToLower(cleanedText), trigger, "")
+			cleanedText := stripTriggersCaseInsensitive(frag.Text, activeEffects)
+			if cleanedText != "" {
+				cleanedText += " "
 			}
-			msg.Fragments[i].Text = strings.TrimSpace(cleanedText) + " "
+			msg.Fragments[i].Text = cleanedText
 		}
 	}
+}
+
+func stripTriggersCaseInsensitive(text string, activeEffects map[string]bool) string {
+	result := text
+	for trigger := range activeEffects {
+		if trigger == "" {
+			continue
+		}
+		for {
+			idx := strings.Index(strings.ToLower(result), trigger)
+			if idx == -1 {
+				break
+			}
+			result = result[:idx] + result[idx+len(trigger):]
+		}
+	}
+	return strings.TrimSpace(result)
 }
 
 func enrichFragments(original []ChatFragment, c *OverlayCache) []ChatFragment {

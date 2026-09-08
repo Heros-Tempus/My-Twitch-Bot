@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -175,7 +176,10 @@ func fetchFFZEmotes(ownerID string, c *OverlayCache) error {
 					imgURL = url
 				}
 				if imgURL != "" {
-					newEmotes[e.Name] = Emote{ImageURL: "https:" + imgURL}
+					if !strings.HasPrefix(imgURL, "http://") && !strings.HasPrefix(imgURL, "https://") {
+						imgURL = "https:" + imgURL
+					}
+					newEmotes[e.Name] = Emote{ImageURL: imgURL}
 				}
 			}
 		}
