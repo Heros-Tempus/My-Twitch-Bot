@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
+	"github.com/andreykaipov/goobs/api/requests/filters"
 	"github.com/andreykaipov/goobs/api/requests/inputs"
 	"github.com/andreykaipov/goobs/api/requests/sceneitems"
 )
@@ -87,6 +88,8 @@ func (a *App) setObsIdle() {
 	if err != nil {
 		log.Printf("Failed to clear OBS text: %v", err)
 	}
+
+	a.triggerAudioDuck("Duck In", "Duck Out")
 }
 
 func (a *App) setObsActive(url, attribution string) {
@@ -116,6 +119,8 @@ func (a *App) setObsActive(url, attribution string) {
 		log.Printf("Failed to make text source visible: %v", err)
 	}
 
+	a.triggerAudioDuck("Duck Out", "Duck In")
+
 	go func() {
 		time.Sleep(15 * time.Second)
 		hidden := false
@@ -128,6 +133,30 @@ func (a *App) setObsActive(url, attribution string) {
 			log.Printf("Failed to hide text source: %v", err)
 		}
 	}()
+}
+
+func (a *App) triggerAudioDuck(enableFilter, disableFilter string) {
+	source := "Game Audio"
+	enabled := true
+	disabled := false
+
+	_, err := a.obs.Filters.SetSourceFilterEnabled(&filters.SetSourceFilterEnabledParams{
+		SourceName:    &source,
+		FilterName:    &enableFilter,
+		FilterEnabled: &enabled,
+	})
+	if err != nil {
+		log.Printf("Failed to enable %s filter: %v", enableFilter, err)
+	}
+
+	_, err = a.obs.Filters.SetSourceFilterEnabled(&filters.SetSourceFilterEnabledParams{
+		SourceName:    &source,
+		FilterName:    &disableFilter,
+		FilterEnabled: &disabled,
+	})
+	if err != nil {
+		log.Printf("Failed to disable %s filter: %v", disableFilter, err)
+	}
 }
 
 func (a *App) sendStatusRequest() {
