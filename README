@@ -36,7 +36,7 @@ The application is orchestrated via Docker Compose and uses multi-stage Docker b
 ### 2. Environment Variables
 Create a `.env` file in the root directory. You can use the following template:
 
-`env
+```env
 # RabbitMQ Configuration
 RABBITMQ_DEFAULT_USER="Your_Default_Rabbit_User"
 RABBITMQ_DEFAULT_PASS="Your_Default_Rabbit_Pass"
@@ -73,7 +73,7 @@ OBS_SCENE_NAME="Your_OBS_Scene_Name"
 # Network Configuration
 DESKTOP_IP="IP_Address_for_the_machine_running_the_bot"
 TZ="Your_Timezone"
-`
+```
 
 ### 3. Database Initialization
 Before starting the Go services, you must start the database and run the schema migrations.
