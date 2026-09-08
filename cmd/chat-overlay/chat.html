@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Twitch Chat Overlay</title>
+    <style>
+        body {
+            background-color: transparent;
+            color: #ffffff;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            
+            text-shadow: 
+                2px 2px 0 #000, 
+               -1px -1px 0 #000, 
+                1px -1px 0 #000, 
+               -1px  1px 0 #000, 
+                1px  1px 0 #000;
+            
+            margin: 0;
+            box-sizing: border-box;
+            
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden; 
+        }
+
+        #chat-container {
+            display: flex;
+            height: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            gap: 12px;
+        }
+
+        .message-row {
+            word-wrap: break-word;
+            line-height: 1.4;
+            animation: slideIn 0.3s ease-out forwards;
+            opacity: 1;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .fade-out {
+            opacity: 0;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .badge {
+            height: 24px;
+            vertical-align: middle;
+            margin-right: 6px;
+            margin-bottom: 4px;
+        }
+
+        .username {
+            margin-right: 8px;
+        }
+
+        .emote {
+            height: 32px; 
+            vertical-align: middle;
+            margin: 0 2px;
+        }
+
+        .effect-upsidedown {
+            transform: rotate(180deg);
+            transform-origin: center;
+            display: inline-block;
+        }
+
+        .effect-rainbow {
+            background-image: linear-gradient(to right, violet, indigo, blue, green, yellow, orange, red);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            text-shadow: none; 
+            font-weight: 900;
+        }
+
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px) rotate(-1deg); }
+            50% { transform: translateX(5px) rotate(1deg); }
+            75% { transform: translateX(-5px) rotate(-1deg); }
+            100% { transform: translateX(0); }
+        }
+
+        .effect-shake {
+            animation: shake 0.4s infinite;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="chat-container"></div>
+
+    <script>
+        const WS_URL = "ws://" + window.location.host + "/ws";
+        
+        const FLOW_BOTTOM_UP = true; 
+        
+        const MESSAGE_TIMEOUT_SEC = 15;
+        const MAX_MESSAGES = 50;
+
+        const container = document.getElementById('chat-container');
+
+        if (FLOW_BOTTOM_UP) {
+            container.style.flexDirection = 'column';
+            container.style.justifyContent = 'flex-end';
+        } else {
+            container.style.flexDirection = 'column';
+            container.style.justifyContent = 'flex-start';
+        }
+
+        function connectWebSocket() {
+            console.log("Attempting to connect to backend at " + WS_URL);
+            const ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => console.log("Connected to Chat Overlay Backend!");
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    renderMessage(data);
+                } catch (e) {
+                    console.error("Failed to parse message data:", e);
+                }
+            };
+
+            ws.onclose = () => {
+                console.log("Disconnected. Reconnecting in 3 seconds...");
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = (err) => ws.close();
+        }
+
+        function renderMessage(data) {
+            const row = document.createElement('div');
+            row.className = 'message-row';
+
+            if (data.effects && data.effects.length > 0) {
+                data.effects.forEach(effectClass => {
+                    row.classList.add(effectClass);
+                });
+            }
+
+            if (data.badges && data.badges.length > 0) {
+                data.badges.forEach(badge => {
+                    if (badge.image_url) {
+                        const img = document.createElement('img');
+                        img.className = 'badge';
+                        img.src = badge.image_url;
+                        img.alt = badge.set_id;
+                        row.appendChild(img);
+                    }
+                });
+            }
+
+            const userSpan = document.createElement('span');
+            userSpan.className = 'username';
+            userSpan.style.color = data.color || '#FFFFFF'; 
+            userSpan.innerText = data.display_name + ':';
+            row.appendChild(userSpan);
+
+            if (data.fragments) {
+                data.fragments.forEach(frag => {
+                    if (frag.type === 'text') {
+                        const textNode = document.createTextNode(frag.text);
+                        row.appendChild(textNode);
+                    } else if (frag.type === 'emote') {
+                        const img = document.createElement('img');
+                        img.className = 'emote';
+                        img.alt = frag.text;
+                        if (frag.image_url) {
+                            img.src = frag.image_url;
+                        } else if (frag.emote_id) {
+                            img.src = `https://static-cdn.jtvnw.net/emoticons/v2/${frag.emote_id}/default/dark/3.0`;
+                        }
+                        row.appendChild(img);
+                    }
+                });
+            }
+
+            if (FLOW_BOTTOM_UP) {
+                container.appendChild(row);
+                row.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            } else {
+                container.prepend(row);
+            }
+
+            setTimeout(() => {
+                row.classList.add('fade-out');
+                
+                setTimeout(() => {
+                    if (row.parentNode === container) {
+                        container.removeChild(row);
+                    }
+                }, 500); 
+                
+            }, MESSAGE_TIMEOUT_SEC * 1000);
+
+            while (container.children.length > MAX_MESSAGES) {
+                if (FLOW_BOTTOM_UP) {
+                    container.removeChild(container.firstChild);
+                } else {
+                    container.removeChild(container.lastChild);
+                }
+            }
+        }
+
+        connectWebSocket();
+    </script>
+</body>
+</html>
