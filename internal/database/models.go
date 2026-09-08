@@ -31,6 +31,14 @@ type Queue struct {
 	Position sql.NullInt32
 }
 
+type Quote struct {
+	ID        int32
+	Quote     string
+	Who       sql.NullString
+	Game      sql.NullString
+	QuoteDate sql.NullTime
+}
+
 type Track struct {
 	VideoID          string
 	Url              string
