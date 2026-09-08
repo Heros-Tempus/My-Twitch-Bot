@@ -132,18 +132,6 @@ func ListenToTwitch(ctx context.Context, t Token, onMessage func(string, string,
 				continue
 			}
 
-			/* echoText := fmt.Sprintf("Echoing @%s: %s",
-				notification.Event.ChatterUserName,
-				notification.Event.Message.Text,
-			)
-
-			log.Printf("Sending echo: %s", echoText)
-
-			err := twitch.SendChatMessage(t, notification.Event.BroadcasterUserID, echoText)
-			if err != nil {
-				log.Printf("Error sending echo to Twitch: %v", err)
-			} */
-
 			onMessage(notification.Event.Message.Text, notification.Event.ChatterUserName, MapTwitchToOverlay(notification.Event))
 
 		case "session_reconnect":
@@ -193,7 +181,6 @@ func MapTwitchToOverlay(event TwitchChatMessageEvent) OverlayMessage {
 		Fragments:   make([]ChatFragment, len(event.Message.Fragments)),
 	}
 
-	// 1. Map Badges
 	for i, b := range event.Badges {
 		msg.Badges[i] = ChatBadge{
 			SetID: b.SetID,
@@ -201,14 +188,12 @@ func MapTwitchToOverlay(event TwitchChatMessageEvent) OverlayMessage {
 		}
 	}
 
-	// 2. Flatten Fragments
 	for i, f := range event.Message.Fragments {
 		frag := ChatFragment{
 			Type: f.Type,
 			Text: f.Text,
 		}
 
-		// If Twitch flagged it as an emote, extract the ID from the nested pointer
 		if f.Type == "emote" && f.Emote != nil {
 			frag.EmoteID = f.Emote.ID
 		}

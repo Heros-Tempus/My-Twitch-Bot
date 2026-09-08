@@ -59,25 +59,15 @@ func BuildCommandRouter(ch *amqp.Channel) func(msg string, user string, m Overla
 			if err != nil {
 				log.Printf("Error publishing GC command: %v", err)
 			}
-		case "!recipe":
-			fmt.Printf("-> Simulating recipe command. (Args provided: %q)\n", args)
-			err := pubsub.PublishJSON(ch, "twitch", "twitch.chat.commands.recipe", Command{
+		case "!quote":
+			fmt.Printf("-> Simulating quote command. (Args provided: %q)\n", args)
+			err := pubsub.PublishJSON(ch, "twitch", "twitch.chat.commands.quote", Command{
 				User: user,
-				Name: "recipe",
+				Name: "quote",
 				Args: args,
 			})
 			if err != nil {
-				log.Printf("Error publishing recipe command: %v", err)
-			}
-		case "!tts":
-			fmt.Printf("-> Simulating TTS command. (Args provided: %q)\n", args)
-			err := pubsub.PublishJSON(ch, "twitch", "twitch.chat.commands.tts", Command{
-				User: user,
-				Name: "tts",
-				Args: args,
-			})
-			if err != nil {
-				log.Printf("Error publishing TTS command: %v", err)
+				log.Printf("Error publishing quote command: %v", err)
 			}
 		default:
 			fmt.Printf("-> Simulating non-command message: %q\n", msg)

@@ -10,12 +10,11 @@ import (
 
 func notifyRabbit(chann *amqp.Channel, token Oauth, err error) {
 	if err != nil {
-		if pubErr := pubsub.PublishJSON(chann, "twitch", "auth.failed", Oauth{}); pubErr != nil {
+		if pubErr := pubsub.PublishJSON(chann, "twitch", "auth.refreshed.failed", Oauth{}); pubErr != nil {
 			log.Println("Error publishing auth failed message to RabbitMQ:", pubErr)
 			return
 		}
 	}
-
 	if pubErr := pubsub.PublishJSON(chann, "twitch", "auth.refreshed.listener", token); pubErr != nil {
 		log.Println("Error publishing OAuth token to RabbitMQ:", pubErr)
 	}
@@ -23,6 +22,9 @@ func notifyRabbit(chann *amqp.Channel, token Oauth, err error) {
 		log.Println("Error publishing OAuth token to RabbitMQ:", pubErr)
 	}
 	if pubErr := pubsub.PublishJSON(chann, "twitch", "auth.refreshed.overlay", token); pubErr != nil {
+		log.Println("Error publishing OAuth token to RabbitMQ:", pubErr)
+	}
+	if pubErr := pubsub.PublishJSON(chann, "twitch", "auth.refreshed.quote", token); pubErr != nil {
 		log.Println("Error publishing OAuth token to RabbitMQ:", pubErr)
 	}
 	log.Println("Successfully published OAuth token to RabbitMQ.")
@@ -88,9 +90,14 @@ func setupRabbitMQ(uri string) (*amqp.Connection, *amqp.Channel, error) {
 	}
 	log.Println("Declared and bound auth.refreshed.overlay queue")
 
-	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch", "auth", "auth.failed"); err != nil {
-		log.Fatal("Error declaring auth.failed queue:", err)
+	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch", "auth.refreshed.quote", "auth.refreshed.quote"); err != nil {
+		log.Fatal("Error declaring auth.refreshed.quote queue:", err)
 	}
-	log.Println("Declared and bound auth.failed queue")
+	log.Println("Declared and bound auth.refreshed.quote queue")
+
+	if err := pubsub.DeclareAndBindQueue(rabbitChan, "twitch", "auth.refreshed.failed", "auth.refreshed.failed"); err != nil {
+		log.Fatal("Error declaring auth.refreshed.failed queue:", err)
+	}
+	log.Println("Declared and bound auth.refreshed.failed queue")
 	return con, rabbitChan, nil
 }

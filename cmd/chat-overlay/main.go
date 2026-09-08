@@ -140,6 +140,13 @@ func (a *App) handleAuthUpdate(msg Oauth) pubsub.AckType {
 
 	return pubsub.AckTypeAck
 }
+
+func (a *App) handleAuthFailure(msg Oauth) pubsub.AckType {
+	log.Println("Received OAuth failure signal.")
+	a.broadcastMessage([]byte("Received OAuth failure signal."))
+	return pubsub.AckTypeNackDiscard
+}
+
 func (a *App) handleIncomingMessage(msg OverlayMessage) pubsub.AckType {
 	a.parseEffects(&msg)
 
@@ -148,7 +155,7 @@ func (a *App) handleIncomingMessage(msg OverlayMessage) pubsub.AckType {
 	for i, badge := range msg.Badges {
 		key := fmt.Sprintf("%s:%s", badge.SetID, badge.ID)
 		if imageURL, exists := a.Cache.Badges[key]; exists {
-			msg.Badges[i].ImageURL = imageURL // Flattened
+			msg.Badges[i].ImageURL = imageURL
 		}
 	}
 
@@ -280,6 +287,9 @@ func main() {
 	chatQueue := "twitch.chat.overlay.send"
 	chatKey := "twitch.chat.overlay.send"
 
+	authFailedQueue := "auth.refreshed.failed"
+	authFailedKey := "auth.refreshed.failed"
+
 	if err = pubsub.DeclareExchange(ch, authExchange, "topic"); err != nil {
 		log.Fatalf("Failed to declare auth exchange: %v", err)
 	}
@@ -289,6 +299,9 @@ func main() {
 
 	if err = pubsub.DeclareAndBindQueue(ch, "twitch", chatQueue, chatKey); err != nil {
 		log.Fatalf("Failed to declare chat queue: %v", err)
+	}
+	if err = pubsub.DeclareAndBindQueue(ch, "twitch", authFailedQueue, authFailedKey); err != nil {
+		log.Fatalf("Failed to declare auth failed queue: %v", err)
 	}
 
 	mux := http.NewServeMux()
@@ -305,6 +318,10 @@ func main() {
 	err = pubsub.SubscribeJSON(conn, authExchange, authQueue, authKey, pubsub.SimpleQueueTypeDurable, app.handleAuthUpdate)
 	if err != nil {
 		log.Fatalf("Failed to subscribe to auth: %v", err)
+	}
+	err = pubsub.SubscribeJSON(conn, authExchange, authFailedQueue, authFailedKey, pubsub.SimpleQueueTypeDurable, app.handleAuthFailure)
+	if err != nil {
+		log.Fatalf("Failed to subscribe to auth failures: %v", err)
 	}
 
 	log.Println("Waiting for initial OAuth token from auth service...")

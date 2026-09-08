@@ -163,7 +163,7 @@ type OverlayMessage struct {
 	Badges      []ChatBadge    `json:"badges"`
 	RawText     string         `json:"raw_text"`
 	Fragments   []ChatFragment `json:"fragments"`
-	Effects     []string       `json:"effects,omitempty"` // Populated by the overlay service
+	Effects     []string       `json:"effects,omitempty"`
 }
 
 type ChatBadge struct {
@@ -175,6 +175,6 @@ type ChatBadge struct {
 type ChatFragment struct {
 	Type     string `json:"type"`
 	Text     string `json:"text"`
-	EmoteID  string `json:"emote_id,omitempty"`  // Flattened from Twitch's nested struct
-	ImageURL string `json:"image_url,omitempty"` // Used later by overlay for 7TV/BTTV
+	EmoteID  string `json:"emote_id,omitempty"`
+	ImageURL string `json:"image_url,omitempty"`
 }

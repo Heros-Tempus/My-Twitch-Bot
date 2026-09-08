@@ -86,6 +86,7 @@ services:
       - .env
     environment:
       - RABBIT_CON_STRING=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
+      - POSTGRES_CON_STRING=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
     depends_on:
       rabbitmq:
         condition: service_healthy

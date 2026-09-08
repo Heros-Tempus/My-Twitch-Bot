@@ -15,10 +15,7 @@ import (
 )
 
 func main() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Print("no env file found")
-	}
+	_ = godotenv.Load(".env")
 
 	rabbitConString := os.Getenv("RABBIT_CON_STRING")
 	log.Printf("RabbitMQ connection string: %s", rabbitConString)
