@@ -28,6 +28,7 @@ The application is orchestrated via Docker Compose and uses multi-stage Docker b
 ## Setup & Installation
 
 ### 1. Prerequisites
+* **Twitch Client & OAuth Tokens**: Required for the bot to sign in to Twitch. Client and Secret must be acquired by registering the bot in the Twitch Dev Console. OAuth Token and Refresh Token can be acquired through Twitch CLI.
 * **Docker & Docker Compose**: Required to build and run the microservices.
 * **Goose**: Required to run the SQL migrations against the PostgreSQL database.
 * **OBS Studio**: Must have obs-websocket enabled and configured.
@@ -47,6 +48,7 @@ RABBITMQ_PASS="Your_Rabbit_Pass"
 POSTGRES_USER="Your_Postgres_User"
 POSTGRES_PASSWORD="Your_Postgres_Pass"
 POSTGRES_DB="Your_Postgres_DB"
+POSTGRES_HOST="Your_Postgres_Host"
 
 # Twitch Authentication
 BOT_ID="Your_Bot_Account's_ID"
@@ -58,6 +60,7 @@ OAUTH_REFRESH_KEY="Your_OAUTH_Refresh_Key"
 BROADCASTER="Your_Username"
 
 # Goose Migrations
+POSTGRES_CON_STRING=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable
 export GOOSE_DBSTRING=${POSTGRES_CON_STRING}
 export GOOSE_MIGRATION_DIR=./sql/schema
 export GOOSE_DRIVER=postgres
