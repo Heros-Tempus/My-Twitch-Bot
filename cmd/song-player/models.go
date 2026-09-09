@@ -1,22 +1,10 @@
 package main
 
 import (
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	"github.com/andreykaipov/goobs"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
-
-type PlayerStatusResponse struct {
-	Status        string `json:"status"`
-	TimeRemaining int32  `json:"time_remaining,omitempty"`
-}
-
-type PlayerTrackPayload struct {
-	Url               string `json:"url"`
-	Duration          int32  `json:"duration"`
-	AttributionString string `json:"attribution_string"`
-}
-
-type EmptySignal struct{}
 
 type App struct {
 	rabbit        *amqp.Channel
@@ -26,7 +14,7 @@ type App struct {
 	sceneName     string
 	textItemId    int
 
-	trackChan  chan PlayerTrackPayload
-	statusChan chan PlayerStatusResponse
+	trackChan  chan models.PlayerTrackPayload
+	statusChan chan models.PlayerStatusResponse
 	skipChan   chan struct{}
 }

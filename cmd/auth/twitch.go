@@ -8,9 +8,11 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 )
 
-func refreshOath(token Oauth) (Oauth, error) {
+func refreshOath(token models.OAuthToken) (models.OAuthToken, error) {
 	endpoint := "https://id.twitch.tv/oauth2/token"
 
 	data := url.Values{}

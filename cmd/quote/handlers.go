@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/database"
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 )
 
 func (app *App) SendToChat(text string) {
-	msg := ChatMessage{
+	msg := models.ChatMessage{
 		Message: text,
 		User:    "Bot",
 	}
@@ -20,13 +21,13 @@ func (app *App) SendToChat(text string) {
 	log.Printf("PUBLISHED TO CHAT: %s", text)
 }
 
-func (app *App) HandleAuthMessage(msg Oauth) pubsub.AckType {
+func (app *App) HandleAuthMessage(msg models.OAuthToken) pubsub.AckType {
 	app.TokenCache.Update(msg)
 	log.Println("INFO: Successfully updated Twitch API token cache.")
 	return pubsub.AckTypeAck
 }
 
-func (app *App) HandleCommandMessage(cmd Command) pubsub.AckType {
+func (app *App) HandleCommandMessage(cmd models.Command) pubsub.AckType {
 	ctx := context.Background()
 
 	parsedCmd, err := ParseQuoteCommand(cmd.Args)

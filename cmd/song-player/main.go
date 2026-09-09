@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 	"github.com/andreykaipov/goobs"
 	"github.com/andreykaipov/goobs/api/requests/sceneitems"
@@ -50,8 +51,8 @@ func main() {
 		sceneName:     os.Getenv("OBS_SCENE_NAME"),
 		browserSource: os.Getenv("OBS_BROWSER_SOURCE_NAME"),
 		textSource:    os.Getenv("OBS_TEXT_SOURCE_NAME"),
-		trackChan:     make(chan PlayerTrackPayload, 5),
-		statusChan:    make(chan PlayerStatusResponse, 1),
+		trackChan:     make(chan models.PlayerTrackPayload, 5),
+		statusChan:    make(chan models.PlayerStatusResponse, 1),
 		skipChan:      make(chan struct{}, 5),
 	}
 	idResp, err := app.obs.SceneItems.GetSceneItemId(&sceneitems.GetSceneItemIdParams{

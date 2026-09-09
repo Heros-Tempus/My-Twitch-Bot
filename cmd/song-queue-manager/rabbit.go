@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -39,7 +40,7 @@ func (r *RabbitClient) sendToChat(message string) {
 	const exchange = "twitch"
 	const key = "twitch.chat.send"
 	const user = "test user"
-	err := pubsub.PublishJSON(r.ch, exchange, key, ChatPayload{Message: message, User: user})
+	err := pubsub.PublishJSON(r.ch, exchange, key, models.ChatMessage{Message: message, User: user})
 	if err != nil {
 		log.Printf("Failed to send message to chat: %v", err)
 	}
@@ -58,14 +59,14 @@ func (r *RabbitClient) Skip() {
 func (r *RabbitClient) SendPlayerStatus(status string, timeRemaining int32) {
 	const exchange = "player"
 	const key = "player.status.response"
-	payload := PlayerStatusResponse{Status: status, TimeRemaining: timeRemaining}
+	payload := models.PlayerStatusResponse{Status: status, TimeRemaining: timeRemaining}
 
 	if err := pubsub.PublishJSON(r.ch, exchange, key, payload); err != nil {
 		log.Printf("Failed to send player status: %v", err)
 	}
 }
 
-func (r *RabbitClient) SendNextTrack(payload PlayerTrackPayload) {
+func (r *RabbitClient) SendNextTrack(payload models.PlayerTrackPayload) {
 	const exchange = "player"
 	const key = "player.track.next"
 

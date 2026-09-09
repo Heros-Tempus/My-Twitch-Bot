@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func setupRabbitMQ(uri string, oauthHandler func(Token) pubsub.AckType) (*amqp.Channel, error) {
+func setupRabbitMQ(uri string, oauthHandler func(models.OAuthToken) pubsub.AckType) (*amqp.Channel, error) {
 	con, err := pubsub.ConnectWithBackoff(uri, 5)
 	if err != nil {
 		return nil, fmt.Errorf("Error connecting to RabbitMQ: %w", err)

@@ -4,10 +4,11 @@ import (
 	"errors"
 	"log"
 
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 )
 
-func (a *App) handleToken(payload Token) pubsub.AckType {
+func (a *App) handleToken(payload models.OAuthToken) pubsub.AckType {
 	a.tokenMu.Lock()
 	a.token = payload
 
@@ -18,7 +19,7 @@ func (a *App) handleToken(payload Token) pubsub.AckType {
 	return pubsub.AckTypeAck
 }
 
-func (a *App) handleChat(payload ChatMessage) pubsub.AckType {
+func (a *App) handleChat(payload models.ChatMessage) pubsub.AckType {
 	a.tokenMu.RLock()
 	token := a.token
 	tokenChange := a.tokenChange

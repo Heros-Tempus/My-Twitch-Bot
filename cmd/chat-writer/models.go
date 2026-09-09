@@ -3,27 +3,13 @@ package main
 import (
 	"errors"
 	"sync"
-	"time"
+
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 )
-
-type Token struct {
-	BotAccountID string
-	OwnerID      string
-	Token        string
-	Refresh      string
-	ClientID     string
-	ClientSecret string
-	ExpiresAt    time.Time
-}
-
-type ChatMessage struct {
-	Message string `json:"message"`
-	User    string `json:"user"`
-}
 
 type App struct {
 	tokenMu     sync.RWMutex
-	token       Token
+	token       models.OAuthToken
 	tokenChange chan struct{}
 }
 

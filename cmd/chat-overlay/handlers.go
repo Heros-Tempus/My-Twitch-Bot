@@ -6,10 +6,11 @@ import (
 	"log"
 	"strings"
 
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 )
 
-func (a *App) handleAuthUpdate(msg Oauth) pubsub.AckType {
+func (a *App) handleAuthUpdate(msg models.OAuthToken) pubsub.AckType {
 	log.Println("Received OAuth token. Updating Twitch Badges...")
 	if err := fetchTwitchBadges(msg.OwnerID, msg.Token, msg.ClientID, a.Cache); err != nil {
 		log.Printf("Failed to fetch Twitch badges: %v", err)
@@ -24,13 +25,13 @@ func (a *App) handleAuthUpdate(msg Oauth) pubsub.AckType {
 	return pubsub.AckTypeAck
 }
 
-func (a *App) handleAuthFailure(msg Oauth) pubsub.AckType {
+func (a *App) handleAuthFailure(msg models.OAuthToken) pubsub.AckType {
 	log.Println("Received OAuth failure signal.")
 	a.broadcastMessage([]byte("Received OAuth failure signal."))
 	return pubsub.AckTypeNackDiscard
 }
 
-func (a *App) handleIncomingMessage(msg OverlayMessage) pubsub.AckType {
+func (a *App) handleIncomingMessage(msg models.OverlayMessage) pubsub.AckType {
 	a.Cache.mu.RLock()
 
 	for i, badge := range msg.Badges {
@@ -56,7 +57,7 @@ func (a *App) handleIncomingMessage(msg OverlayMessage) pubsub.AckType {
 	return pubsub.AckTypeAck
 }
 
-func (a *App) parseEffects(msg *OverlayMessage) {
+func (a *App) parseEffects(msg *models.OverlayMessage) {
 	if msg.Effects == nil {
 		msg.Effects = make([]string, 0)
 	}
@@ -102,8 +103,8 @@ func stripTriggersCaseInsensitive(text string, activeEffects map[string]bool) st
 	return strings.TrimSpace(result)
 }
 
-func enrichFragments(original []ChatFragment, c *OverlayCache) []ChatFragment {
-	var enriched []ChatFragment
+func enrichFragments(original []models.ChatFragment, c *OverlayCache) []models.ChatFragment {
+	var enriched []models.ChatFragment
 	for _, frag := range original {
 		if frag.Type != "text" {
 			enriched = append(enriched, frag)
@@ -114,10 +115,10 @@ func enrichFragments(original []ChatFragment, c *OverlayCache) []ChatFragment {
 		for i, word := range words {
 			if cachedEmote, isEmote := c.Emotes[word]; isEmote {
 				if textBuffer.Len() > 0 {
-					enriched = append(enriched, ChatFragment{Type: "text", Text: textBuffer.String()})
+					enriched = append(enriched, models.ChatFragment{Type: "text", Text: textBuffer.String()})
 					textBuffer.Reset()
 				}
-				enriched = append(enriched, ChatFragment{Type: "emote", Text: word, ImageURL: cachedEmote.ImageURL})
+				enriched = append(enriched, models.ChatFragment{Type: "emote", Text: word, ImageURL: cachedEmote.ImageURL})
 				if i < len(words)-1 {
 					textBuffer.WriteString(" ")
 				}
@@ -129,7 +130,7 @@ func enrichFragments(original []ChatFragment, c *OverlayCache) []ChatFragment {
 			}
 		}
 		if textBuffer.Len() > 0 {
-			enriched = append(enriched, ChatFragment{Type: "text", Text: textBuffer.String()})
+			enriched = append(enriched, models.ChatFragment{Type: "text", Text: textBuffer.String()})
 		}
 	}
 	return enriched

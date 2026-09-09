@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/database"
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 )
 
 func (a *App) popAndPlayNextTrack(ctx context.Context) {
@@ -40,7 +41,7 @@ func (a *App) popAndPlayNextTrack(ctx context.Context) {
 		t.OriginalComposer = trackData.OriginalComposer.String
 	}
 
-	payload := PlayerTrackPayload{
+	payload := models.PlayerTrackPayload{
 		Url:               trackData.ID,
 		Duration:          trackData.DurationSeconds.Int32,
 		AttributionString: buildAttribution(t),

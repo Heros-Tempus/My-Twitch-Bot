@@ -7,15 +7,16 @@ import (
 	"time"
 
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/database"
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 )
 
-func loadOAuth(dbQueries *database.Queries, botID string) Oauth {
+func loadOAuth(dbQueries *database.Queries, botID string) models.OAuthToken {
 	auth, err := dbQueries.GetAuth(context.Background(), botID)
 	if err != nil {
 		log.Printf("Auth not found or error reading from DB: %v", err)
-		return Oauth{}
+		return models.OAuthToken{}
 	}
-	oauth, err := refreshOath(Oauth{
+	oauth, err := refreshOath(models.OAuthToken{
 		BotAccountID: auth.TwitchBotAccountID,
 		OwnerID:      auth.TwitchOwnerID,
 		Token:        auth.OauthKey,
@@ -26,14 +27,14 @@ func loadOAuth(dbQueries *database.Queries, botID string) Oauth {
 	})
 	if err != nil {
 		log.Printf("Failed to refresh OAuth token using DB data: %v", err)
-		return Oauth{}
+		return models.OAuthToken{}
 	}
 	return oauth
 }
 
-func (a *App) loadEnvOAuth(botID string) Oauth {
+func (a *App) loadEnvOAuth(botID string) models.OAuthToken {
 	log.Println("Falling back to .env authentication data...")
-	envOauth := Oauth{
+	envOauth := models.OAuthToken{
 		BotAccountID: botID,
 		OwnerID:      os.Getenv("OWNER_ID"),
 		Token:        os.Getenv("OAUTH_KEY"),
@@ -46,7 +47,7 @@ func (a *App) loadEnvOAuth(botID string) Oauth {
 	if err != nil {
 		log.Printf("Critical: Failed to refresh OAuth token from .env: %v", err)
 		a.publishOAuth(err)
-		return Oauth{}
+		return models.OAuthToken{}
 	}
 
 	_, err = a.db.SetAuth(context.Background(), database.SetAuthParams{

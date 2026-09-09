@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func notifyRabbit(chann *amqp.Channel, token Oauth, err error) {
+func notifyRabbit(chann *amqp.Channel, token models.OAuthToken, err error) {
 	if err != nil {
-		if pubErr := pubsub.PublishJSON(chann, "twitch", "auth.refreshed.failed", Oauth{}); pubErr != nil {
+		if pubErr := pubsub.PublishJSON(chann, "twitch", "auth.refreshed.failed", models.OAuthToken{}); pubErr != nil {
 			log.Println("Error publishing auth failed message to RabbitMQ:", pubErr)
 			return
 		}

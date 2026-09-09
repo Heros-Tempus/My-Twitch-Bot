@@ -1,9 +1,8 @@
 package main
 
 import (
-	"time"
-
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/database"
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -12,7 +11,7 @@ type App struct {
 	rabbitCon   *amqp.Connection
 	rabbitChan  *amqp.Channel
 	refreshChan <-chan struct{}
-	oauth       Oauth
+	oauth       models.OAuthToken
 }
 
 func newApp(db *database.Queries, rabbitCon *amqp.Connection, rabbitChan *amqp.Channel, refreshChan <-chan struct{}) *App {
@@ -22,16 +21,6 @@ func newApp(db *database.Queries, rabbitCon *amqp.Connection, rabbitChan *amqp.C
 		rabbitChan:  rabbitChan,
 		refreshChan: refreshChan,
 	}
-}
-
-type Oauth struct {
-	BotAccountID string
-	OwnerID      string
-	Token        string
-	Refresh      string
-	ClientID     string
-	ClientSecret string
-	ExpiresAt    time.Time
 }
 
 type TwitchTokenResponse struct {

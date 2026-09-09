@@ -11,10 +11,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	"github.com/coder/websocket"
 )
 
-func SubscribeToChat(sessionID string, t Token) error {
+func SubscribeToChat(sessionID string, t models.OAuthToken) error {
 	url := "https://api.twitch.tv/helix/eventsub/subscriptions"
 
 	payload := map[string]interface{}{
@@ -60,7 +61,7 @@ func SubscribeToChat(sessionID string, t Token) error {
 	return nil
 }
 
-func ListenToTwitch(ctx context.Context, t Token, onMessage func(string, string, OverlayMessage), onRevocation func(SubscriptionRevocation), invalidateToken func() bool) error {
+func ListenToTwitch(ctx context.Context, t models.OAuthToken, onMessage func(string, string, models.OverlayMessage), onRevocation func(SubscriptionRevocation), invalidateToken func() bool) error {
 	wsURL := "wss://eventsub.wss.twitch.tv/ws"
 
 	log.Printf("Connecting to Twitch EventSub at %s...", wsURL)
@@ -171,25 +172,25 @@ func ListenToTwitch(ctx context.Context, t Token, onMessage func(string, string,
 	}
 }
 
-func MapTwitchToOverlay(event TwitchChatMessageEvent) OverlayMessage {
-	msg := OverlayMessage{
+func MapTwitchToOverlay(event TwitchChatMessageEvent) models.OverlayMessage {
+	msg := models.OverlayMessage{
 		UserID:      event.ChatterUserID,
 		DisplayName: event.ChatterUserName,
 		Color:       event.Color,
 		RawText:     event.Message.Text,
-		Badges:      make([]ChatBadge, len(event.Badges)),
-		Fragments:   make([]ChatFragment, len(event.Message.Fragments)),
+		Badges:      make([]models.ChatBadge, len(event.Badges)),
+		Fragments:   make([]models.ChatFragment, len(event.Message.Fragments)),
 	}
 
 	for i, b := range event.Badges {
-		msg.Badges[i] = ChatBadge{
+		msg.Badges[i] = models.ChatBadge{
 			SetID: b.SetID,
 			ID:    b.ID,
 		}
 	}
 
 	for i, f := range event.Message.Fragments {
-		frag := ChatFragment{
+		frag := models.ChatFragment{
 			Type: f.Type,
 			Text: f.Text,
 		}

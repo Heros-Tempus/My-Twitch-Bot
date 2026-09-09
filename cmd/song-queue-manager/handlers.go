@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 )
 
-func (a *App) handlePlayerStatusRequest(msg EmptySignal) pubsub.AckType {
+func (a *App) handlePlayerStatusRequest(msg models.EmptySignal) pubsub.AckType {
 	ctx := context.Background()
 	log.Println("Received player status request")
 	a.mu.Lock()
@@ -41,13 +42,13 @@ func (a *App) handlePlayerStatusRequest(msg EmptySignal) pubsub.AckType {
 	return pubsub.AckTypeAck
 }
 
-func (a *App) handlePlayerReady(msg EmptySignal) pubsub.AckType {
+func (a *App) handlePlayerReady(msg models.EmptySignal) pubsub.AckType {
 	a.popAndPlayNextTrack(context.Background())
 	return pubsub.AckTypeAck
 }
 
-func (a *App) handleChatCommand(msg Request) pubsub.AckType {
-	input := Request{User: msg.User, Name: msg.Name, Args: msg.Args}
+func (a *App) handleChatCommand(msg models.Command) pubsub.AckType {
+	input := models.Command{User: msg.User, Name: msg.Name, Args: msg.Args}
 	isMod := strings.Contains(os.Getenv("MODERATORS"), msg.User) || msg.User == os.Getenv("BROADCASTER")
 	parsed := ParseCommand(input)
 	ctx := context.Background()

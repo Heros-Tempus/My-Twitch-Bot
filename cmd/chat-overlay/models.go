@@ -3,45 +3,22 @@ package main
 import (
 	"context"
 	"sync"
-	"time"
 
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	"github.com/coder/websocket"
 )
 
-type OverlayMessage struct {
-	UserID      string         `json:"user_id"`
-	DisplayName string         `json:"display_name"`
-	Color       string         `json:"color"`
-	Badges      []ChatBadge    `json:"badges"`
-	RawText     string         `json:"raw_text"`
-	Fragments   []ChatFragment `json:"fragments"`
-	Effects     []string       `json:"effects,omitempty"`
-}
-
 type ChatUser struct {
-	ID          string      `json:"id"`
-	Login       string      `json:"login"`
-	DisplayName string      `json:"display_name"`
-	Color       string      `json:"color"`
-	Badges      []ChatBadge `json:"badges"`
-}
-
-type ChatBadge struct {
-	SetID    string `json:"set_id"`
-	ID       string `json:"id"`
-	ImageURL string `json:"image_url,omitempty"`
-}
-
-type ChatFragment struct {
-	Type     string `json:"type"`
-	Text     string `json:"text"`
-	EmoteID  string `json:"emote_id,omitempty"`
-	ImageURL string `json:"image_url,omitempty"`
+	ID          string             `json:"id"`
+	Login       string             `json:"login"`
+	DisplayName string             `json:"display_name"`
+	Color       string             `json:"color"`
+	Badges      []models.ChatBadge `json:"badges"`
 }
 
 type ChatData struct {
-	RawText   string         `json:"raw_text"`
-	Fragments []ChatFragment `json:"fragments"`
+	RawText   string                `json:"raw_text"`
+	Fragments []models.ChatFragment `json:"fragments"`
 }
 
 type Metadata struct {
@@ -49,16 +26,6 @@ type Metadata struct {
 	IsHighlight bool     `json:"is_highlight"`
 	IsReply     bool     `json:"is_reply"`
 	Effects     []string `json:"effects"`
-}
-
-type Oauth struct {
-	BotAccountID string
-	OwnerID      string
-	Token        string
-	Refresh      string
-	ClientID     string
-	ClientSecret string
-	ExpiresAt    time.Time
 }
 
 type Emote struct {

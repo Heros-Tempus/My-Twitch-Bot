@@ -6,25 +6,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
-
-type Command struct {
-	User string
-	Name string
-	Args string
-}
-
-type ChatMessage struct {
-	User    string
-	Message string
-}
 
 type App struct {
 	rabbit *amqp.Channel
 
 	tokenMu       sync.RWMutex
-	token         Token
+	token         models.OAuthToken
 	hasValidToken bool
 	isRevoked     bool
 
@@ -41,13 +31,13 @@ func newApp() *App {
 	}
 }
 
-func (a *App) getToken() (Token, bool) {
+func (a *App) getToken() (models.OAuthToken, bool) {
 	a.tokenMu.RLock()
 	defer a.tokenMu.RUnlock()
 	return a.token, a.hasValidToken
 }
 
-func (a *App) updateToken(msg Token) bool {
+func (a *App) updateToken(msg models.OAuthToken) bool {
 	a.tokenMu.Lock()
 	defer a.tokenMu.Unlock()
 	if a.isRevoked || (a.hasValidToken && a.token.ExpiresAt.After(msg.ExpiresAt)) {
@@ -144,37 +134,4 @@ type TwitchChatMessageEvent struct {
 			} `json:"emote"`
 		} `json:"fragments"`
 	} `json:"message"`
-}
-
-type Token struct {
-	BotAccountID string
-	OwnerID      string
-	Token        string
-	Refresh      string
-	ClientID     string
-	ClientSecret string
-	ExpiresAt    time.Time
-}
-
-type OverlayMessage struct {
-	UserID      string         `json:"user_id"`
-	DisplayName string         `json:"display_name"`
-	Color       string         `json:"color"`
-	Badges      []ChatBadge    `json:"badges"`
-	RawText     string         `json:"raw_text"`
-	Fragments   []ChatFragment `json:"fragments"`
-	Effects     []string       `json:"effects,omitempty"`
-}
-
-type ChatBadge struct {
-	SetID    string `json:"set_id"`
-	ID       string `json:"id"`
-	ImageURL string `json:"image_url,omitempty"`
-}
-
-type ChatFragment struct {
-	Type     string `json:"type"`
-	Text     string `json:"text"`
-	EmoteID  string `json:"emote_id,omitempty"`
-	ImageURL string `json:"image_url,omitempty"`
 }

@@ -3,12 +3,9 @@ package main
 import (
 	"sync"
 	"time"
-)
 
-type ChatMessage struct {
-	Message string `json:"message"`
-	User    string `json:"user"`
-}
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
+)
 
 type QuoteAction int
 
@@ -24,11 +21,6 @@ const (
 	ActionGetByFilters
 )
 
-type Command struct {
-	User string
-	Name string
-	Args string
-}
 
 type ParsedQuoteCommand struct {
 	Action    QuoteAction
@@ -42,22 +34,12 @@ type ParsedQuoteCommand struct {
 	EndDate   time.Time
 }
 
-type Oauth struct {
-	BotAccountID string    `json:"BotAccountID"`
-	OwnerID      string    `json:"OwnerID"`
-	Token        string    `json:"Token"`
-	Refresh      string    `json:"Refresh"`
-	ClientID     string    `json:"ClientID"`
-	ClientSecret string    `json:"ClientSecret"`
-	ExpiresAt    time.Time `json:"ExpiresAt"`
-}
-
 type TokenCache struct {
 	mu    sync.RWMutex
-	creds Oauth
+	creds models.OAuthToken
 }
 
-func (tc *TokenCache) Update(newCreds Oauth) {
+func (tc *TokenCache) Update(newCreds models.OAuthToken) {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
 	tc.creds = newCreds

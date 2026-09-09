@@ -8,9 +8,10 @@ import (
 	"strings"
 
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/database"
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 )
 
-func ParseCommand(in Request) ParsedCommand {
+func ParseCommand(in models.Command) ParsedCommand {
 	parts := strings.Split(in.Args, "--")
 
 	for _, part := range parts {

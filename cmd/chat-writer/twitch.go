@@ -7,9 +7,11 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 )
 
-func SendChatMessage(t Token, text string) error {
+func SendChatMessage(t models.OAuthToken, text string) error {
 	url := "https://api.twitch.tv/helix/chat/messages"
 
 	payload := map[string]string{

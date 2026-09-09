@@ -13,12 +13,6 @@ type Service struct {
 	queries *database.Queries
 }
 
-type Request struct {
-	User string `json:"user"`
-	Name string `json:"name"`
-	Args string `json:"args"`
-}
-
 type Action int
 
 const (
@@ -46,24 +40,6 @@ type Track struct {
 type RabbitClient struct {
 	ch *amqp.Channel
 }
-
-type ChatPayload struct {
-	Message string `json:"message"`
-	User    string `json:"user"`
-}
-
-type PlayerStatusResponse struct {
-	Status        string `json:"status"`
-	TimeRemaining int32  `json:"time_remaining,omitempty"`
-}
-
-type PlayerTrackPayload struct {
-	Url               string `json:"url"`
-	Duration          int32  `json:"duration"`
-	AttributionString string `json:"attribution_string"`
-}
-
-type EmptySignal struct{}
 
 type App struct {
 	rabbit  *RabbitClient
