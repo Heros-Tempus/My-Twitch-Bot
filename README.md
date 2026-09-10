@@ -90,6 +90,7 @@ Before starting the Go services, you must start the database and run the schema 
    source .env
    goose up
    `
+3. (Optional) Seed the `tracks` table: If you'd like to quickly test the music player without manually adding songs, I've created a [database dump gist](https://gist.github.com/Heros-Tempus/0bf3e961f3ef2075bbd24c1b56edd78f) pre-populated with links and metadata scraped from the GameChops YouTube channel. You can execute this SQL dump against your newly migrated database to fill the `tracks` table.
 
 ### 4. Running the Bot
 Once the database is primed, start the remaining microservices:
@@ -108,6 +109,7 @@ The Chat Overlay service supports dynamic text effects triggered by specific has
 * `#shake`: Applies a shaking animation to the text.
 
 ### Song Player Commands
+The Song Player service directs a browser source to open to a video url in the tracks table, and displays an attribution string based associated data.
 * `!gc` or `!gamechops`: Base command to queue music.
 * Filters: `--track`, `--artist`, `--album`, `--source_media`, `--original_composer`, `--limit`
 * `!gc --peek`: Shows the upcoming tracks in the queue.
