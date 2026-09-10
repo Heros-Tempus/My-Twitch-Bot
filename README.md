@@ -109,7 +109,7 @@ The Chat Overlay service supports dynamic text effects triggered by specific has
 * `#shake`: Applies a shaking animation to the text.
 
 ### Song Player Commands
-The Song Player service directs a browser source to open to a video url in the tracks table, and displays an attribution string based associated data.
+The Song Player service directs a browser source to open to a video url in the tracks table, and displays an attribution string from the associated data.
 * `!gc` or `!gamechops`: Base command to queue music.
 * Filters: `--track`, `--artist`, `--album`, `--source_media`, `--original_composer`, `--limit`
 * `!gc --peek`: Shows the upcoming tracks in the queue.
