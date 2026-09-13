@@ -50,7 +50,7 @@ func BuildCommandRouter(ch *amqp.Channel) func(msg string, user string, m models
 		}
 		switch command {
 		case "!gc", "!gamechops":
-			err := pubsub.PublishJSON(ch, "twitch", "twitch.chat.commands.gc", models.Command{
+			err := pubsub.PublishJSON(ch, pubsub.ExchangeBot, pubsub.KeyCmdSong, models.Command{
 				User: user,
 				Name: "gc",
 				Args: args,

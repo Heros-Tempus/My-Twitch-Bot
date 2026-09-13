@@ -14,11 +14,11 @@ func setupRabbitMQSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App
 	if err != nil {
 		return fmt.Errorf("Error declaring player exchange: %w", err)
 	}
-	err = pubsub.DeclareExchange(ch, "twitch", "topic")
+	err = pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic")
 	if err != nil {
 		return fmt.Errorf("Error declaring Twitch exchange: %w", err)
 	}
-	err = pubsub.SubscribeJSON(con, "twitch", "song-queue-manager.commands.gc", "twitch.chat.commands.gc", pubsub.SimpleQueueTypeDurable, app.handleChatCommand)
+	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongManagerCommands, pubsub.KeyCmdSong, pubsub.SimpleQueueTypeDurable, app.handleChatCommand)
 	if err != nil {
 		return fmt.Errorf("Error subscribing to chat commands: %w", err)
 	}
