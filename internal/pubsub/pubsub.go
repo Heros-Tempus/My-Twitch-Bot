@@ -10,15 +10,15 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func DeclareExchange(ch *amqp.Channel, exchange, kind string) error {
-	return ch.ExchangeDeclare(exchange, kind, true, false, false, false, nil)
+func DeclareExchange(ch *amqp.Channel, exchange ExchangeName, kind string) error {
+	return ch.ExchangeDeclare(string(exchange), kind, true, false, false, false, nil)
 }
 
-func DeclareAndBindQueue(ch *amqp.Channel, exchange, queueName, routingKey string) error {
+func DeclareAndBindQueue(ch *amqp.Channel, exchange ExchangeName, queueName QueueName, routingKey RoutingKey) error {
 	table := make(amqp.Table)
 	table["x-dead-letter-exchange"] = "twitch.dlx"
 	_, err := ch.QueueDeclare(
-		queueName,
+		string(queueName),
 		true,
 		false,
 		false,
@@ -29,15 +29,15 @@ func DeclareAndBindQueue(ch *amqp.Channel, exchange, queueName, routingKey strin
 		return err
 	}
 	return ch.QueueBind(
-		queueName,
-		routingKey,
-		exchange,
+		string(queueName),
+		string(routingKey),
+		string(exchange),
 		false,
 		nil,
 	)
 }
 
-func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
+func PublishJSON[T any](ch *amqp.Channel, exchange ExchangeName, key RoutingKey, val T) error {
 	body, err := json.Marshal(val)
 	if err != nil {
 		fmt.Println("Error marshaling JSON:", err)
@@ -46,8 +46,8 @@ func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
 
 	return ch.PublishWithContext(
 		context.Background(),
-		exchange,
-		key,
+		string(exchange),
+		string(key),
 		false,
 		false,
 		amqp.Publishing{
@@ -57,7 +57,7 @@ func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
 	)
 }
 
-func PublishGob[T any](ch *amqp.Channel, exchange, key string, val T) error {
+func PublishGob[T any](ch *amqp.Channel, exchange ExchangeName, key RoutingKey, val T) error {
 	body, err := EncodeGob(val)
 	if err != nil {
 		return err
@@ -65,8 +65,8 @@ func PublishGob[T any](ch *amqp.Channel, exchange, key string, val T) error {
 
 	return ch.PublishWithContext(
 		context.Background(),
-		exchange,
-		key,
+		string(exchange),
+		string(key),
 		false,
 		false,
 		amqp.Publishing{
@@ -76,7 +76,7 @@ func PublishGob[T any](ch *amqp.Channel, exchange, key string, val T) error {
 	)
 }
 
-func DeclareAndBind(conn *amqp.Connection, exchange, queueName, key string, queueType SimpleQueueType) (*amqp.Channel, amqp.Queue, error) {
+func DeclareAndBind(conn *amqp.Connection, exchange ExchangeName, queueName QueueName, key RoutingKey, queueType SimpleQueueType) (*amqp.Channel, amqp.Queue, error) {
 	rabbitChan, err := conn.Channel()
 	if err != nil {
 		return nil, amqp.Queue{}, err
@@ -84,7 +84,7 @@ func DeclareAndBind(conn *amqp.Connection, exchange, queueName, key string, queu
 	table := make(amqp.Table)
 	table["x-dead-letter-exchange"] = "twitch.dlx"
 	rabbitQueue, err := rabbitChan.QueueDeclare(
-		queueName,
+		string(queueName),
 		queueType == SimpleQueueTypeDurable,
 		queueType == SimpleQueueTypeTransient,
 		queueType == SimpleQueueTypeTransient,
@@ -96,8 +96,8 @@ func DeclareAndBind(conn *amqp.Connection, exchange, queueName, key string, queu
 	}
 	err = rabbitChan.QueueBind(
 		rabbitQueue.Name,
-		key,
-		exchange,
+		string(key),
+		string(exchange),
 		false,
 		nil,
 	)
@@ -107,7 +107,7 @@ func DeclareAndBind(conn *amqp.Connection, exchange, queueName, key string, queu
 	return rabbitChan, rabbitQueue, nil
 }
 
-func SubscribeJSON[T any](conn *amqp.Connection, exchange, queueName, key string, queueType SimpleQueueType, handler func(T) AckType) error {
+func SubscribeJSON[T any](conn *amqp.Connection, exchange ExchangeName, queueName QueueName, key RoutingKey, queueType SimpleQueueType, handler func(T) AckType) error {
 	return subscribe(conn, exchange, queueName, key, queueType, handler, func(data []byte) (T, error) {
 		var val T
 		err := json.Unmarshal(data, &val)
@@ -115,7 +115,7 @@ func SubscribeJSON[T any](conn *amqp.Connection, exchange, queueName, key string
 	})
 }
 
-func SubscribeGob[T any](conn *amqp.Connection, exchange, queueName, key string, queueType SimpleQueueType, handler func(T) AckType) error {
+func SubscribeGob[T any](conn *amqp.Connection, exchange ExchangeName, queueName QueueName, key RoutingKey, queueType SimpleQueueType, handler func(T) AckType) error {
 	return subscribe(conn, exchange, queueName, key, queueType, handler, func(data []byte) (T, error) {
 		var val T
 		err := DecodeGob(data, &val)
@@ -123,7 +123,7 @@ func SubscribeGob[T any](conn *amqp.Connection, exchange, queueName, key string,
 	})
 }
 
-func subscribe[T any](conn *amqp.Connection, exchange, queueName, key string, simpleQueueType SimpleQueueType, handler func(T) AckType, unmarshaller func([]byte) (T, error),
+func subscribe[T any](conn *amqp.Connection, exchange ExchangeName, queueName QueueName, key RoutingKey, simpleQueueType SimpleQueueType, handler func(T) AckType, unmarshaller func([]byte) (T, error),
 ) error {
 	c, q, err := DeclareAndBind(conn, exchange, queueName, key, simpleQueueType)
 	if err != nil {
@@ -157,31 +157,6 @@ func subscribe[T any](conn *amqp.Connection, exchange, queueName, key string, si
 		}
 	}()
 	return nil
-}
-
-type SimpleQueueType string
-
-const (
-	SimpleQueueTypeDurable   SimpleQueueType = "durable"
-	SimpleQueueTypeTransient SimpleQueueType = "transient"
-)
-
-type Queue struct {
-	Type SimpleQueueType
-	Name string
-}
-
-type AckType string
-
-const (
-	AckTypeAck         AckType = "ack"
-	AckTypeNackRequeue AckType = "nack_requeue"
-	AckTypeNackDiscard AckType = "nack_discard"
-)
-
-type Ack struct {
-	Type AckType
-	Name string
 }
 
 func EncodeGob[T any](val T) ([]byte, error) {

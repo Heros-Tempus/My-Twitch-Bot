@@ -35,31 +35,31 @@ func (app *App) setupRabbitMQ(rabbitConString string) error {
 		return fmt.Errorf("Error opening RabbitMQ channel: %w", err)
 	}
 	app.Rabbit = ch
-	err = pubsub.DeclareExchange(ch, "twitch", "topic")
+	err = pubsub.DeclareExchange(app.Rabbit, "twitch", "topic")
 	if err != nil {
 		con.Close()
 		ch.Close()
 		return fmt.Errorf("Error declaring Twitch exchange: %w", err)
 	}
-	err = pubsub.DeclareAndBindQueue(ch, "twitch", "auth.refreshed.quote", "auth.refreshed.quote")
+	err = pubsub.DeclareExchange(app.Rabbit, pubsub.ExchangeBot, "topic")
+	if err != nil {
+		con.Close()
+		ch.Close()
+		return fmt.Errorf("Error declaring bot exchange: %w", err)
+	}
+	err = pubsub.DeclareAndBindQueue(app.Rabbit, pubsub.ExchangeBot, pubsub.QueueQuoteOAuth, pubsub.KeyTokenRefreshed)
 	if err != nil {
 		con.Close()
 		ch.Close()
 		return fmt.Errorf("Error declaring and binding auth refreshed quote queue: %w", err)
 	}
-	err = pubsub.DeclareAndBindQueue(ch, "twitch", "twitch.chat.commands.quote", "twitch.chat.commands.quote")
+	err = pubsub.DeclareAndBindQueue(app.Rabbit, "twitch", "twitch.chat.commands.quote", "twitch.chat.commands.quote")
 	if err != nil {
 		con.Close()
 		ch.Close()
 		return fmt.Errorf("Error declaring and binding twitch chat commands quote queue: %w", err)
 	}
-	err = pubsub.SubscribeJSON(con, "twitch", "auth.refreshed.quote", "auth.refreshed.quote", pubsub.SimpleQueueTypeDurable, app.HandleAuthMessage)
-	if err != nil {
-		con.Close()
-		ch.Close()
-		return fmt.Errorf("Error subscribing to auth refreshed quote messages: %w", err)
-	}
-	err = pubsub.SubscribeJSON(con, "twitch", "auth.refreshed.quote", "auth.refreshed.quote", pubsub.SimpleQueueTypeDurable, app.HandleAuthMessage)
+	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueQuoteOAuth, pubsub.KeyTokenRefreshed, pubsub.SimpleQueueTypeDurable, app.HandleAuthMessage)
 	if err != nil {
 		con.Close()
 		ch.Close()

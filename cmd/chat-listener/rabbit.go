@@ -28,8 +28,14 @@ func setupRabbitMQ(uri string, oauthHandler func(models.OAuthToken) pubsub.AckTy
 		ch.Close()
 		return nil, fmt.Errorf("Error declaring Twitch exchange: %w", err)
 	}
+	err = pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic")
+	if err != nil {
+		con.Close()
+		ch.Close()
+		return nil, fmt.Errorf("Error declaring bot exchange: %w", err)
+	}
 
-	err = pubsub.SubscribeJSON(con, "twitch", "auth.refreshed.listener", "auth.refreshed.listener", pubsub.SimpleQueueTypeDurable, oauthHandler)
+	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueListenerOAuth, pubsub.KeyTokenRefreshed, pubsub.SimpleQueueTypeDurable, oauthHandler)
 	if err != nil {
 		con.Close()
 		ch.Close()

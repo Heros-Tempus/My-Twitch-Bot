@@ -39,9 +39,12 @@ func main() {
 	if err := pubsub.DeclareExchange(ch, "twitch", "topic"); err != nil {
 		log.Fatal("Error declaring Twitch exchange:", err)
 	}
+	if err := pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic"); err != nil {
+		log.Fatal("Error declaring bot exchange:", err)
+	}
 
 	app := newApp()
-	err = pubsub.SubscribeJSON(con, "twitch", "auth.refreshed.writer", "auth.refreshed.writer", pubsub.SimpleQueueTypeDurable, app.handleToken)
+	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueWriterOAuth, pubsub.KeyTokenRefreshed, pubsub.SimpleQueueTypeDurable, app.handleToken)
 	if err != nil {
 		log.Fatal("Error subscribing to token messages:", err)
 	}

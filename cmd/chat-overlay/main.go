@@ -48,28 +48,20 @@ func main() {
 	}
 	defer ch.Close()
 
-	authExchange := "twitch"
-	authQueue := "auth.refreshed.overlay"
-	authKey := "auth.refreshed.overlay"
-
-	chatExchange := "twitch"
-	chatQueue := "twitch.chat.overlay.send"
-	chatKey := "twitch.chat.overlay.send"
-
-	authFailedQueue := "auth.refreshed.failed"
-	authFailedKey := "auth.refreshed.failed"
-
-	if err = pubsub.DeclareExchange(ch, authExchange, "topic"); err != nil {
+	if err = pubsub.DeclareExchange(ch, "twitch", "topic"); err != nil {
 		log.Fatalf("Failed to declare auth exchange: %v", err)
 	}
-	if err = pubsub.DeclareAndBindQueue(ch, authExchange, authQueue, authKey); err != nil {
+	if err = pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic"); err != nil {
+		log.Fatalf("Failed to declare bot exchange: %v", err)
+	}
+	if err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueOverlayOAuth, pubsub.KeyTokenRefreshed); err != nil {
 		log.Fatalf("Failed to declare auth queue: %v", err)
 	}
 
-	if err = pubsub.DeclareAndBindQueue(ch, "twitch", chatQueue, chatKey); err != nil {
+	if err = pubsub.DeclareAndBindQueue(ch, "twitch", "twitch.chat.overlay.send", "twitch.chat.overlay.send"); err != nil {
 		log.Fatalf("Failed to declare chat queue: %v", err)
 	}
-	if err = pubsub.DeclareAndBindQueue(ch, "twitch", authFailedQueue, authFailedKey); err != nil {
+	if err = pubsub.DeclareAndBindQueue(ch, "twitch", "auth.refreshed.failed", "auth.refreshed.failed"); err != nil {
 		log.Fatalf("Failed to declare auth failed queue: %v", err)
 	}
 
@@ -85,11 +77,11 @@ func main() {
 		}
 	}()
 
-	err = pubsub.SubscribeJSON(conn, authExchange, authQueue, authKey, pubsub.SimpleQueueTypeDurable, app.handleAuthUpdate)
+	err = pubsub.SubscribeJSON(conn, pubsub.ExchangeBot, pubsub.QueueOverlayOAuth, pubsub.KeyTokenRefreshed, pubsub.SimpleQueueTypeDurable, app.handleAuthUpdate)
 	if err != nil {
 		log.Fatalf("Failed to subscribe to auth: %v", err)
 	}
-	err = pubsub.SubscribeJSON(conn, authExchange, authFailedQueue, authFailedKey, pubsub.SimpleQueueTypeDurable, app.handleAuthFailure)
+	err = pubsub.SubscribeJSON(conn, pubsub.ExchangeBot, pubsub.QueueOverlayAlerts, pubsub.KeyTokenFailed, pubsub.SimpleQueueTypeDurable, app.handleAuthFailure)
 	if err != nil {
 		log.Fatalf("Failed to subscribe to auth failures: %v", err)
 	}
@@ -105,7 +97,7 @@ func main() {
 		return
 	}
 
-	err = pubsub.SubscribeJSON(conn, chatExchange, chatQueue, chatKey, pubsub.SimpleQueueTypeDurable, app.handleIncomingMessage)
+	err = pubsub.SubscribeJSON(conn, "twitch", "twitch.chat.overlay.send", "twitch.chat.overlay.send", pubsub.SimpleQueueTypeDurable, app.handleIncomingMessage)
 	if err != nil {
 		log.Fatalf("Failed to subscribe to chat: %v", err)
 	}
