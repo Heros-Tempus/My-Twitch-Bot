@@ -22,12 +22,6 @@ func setupRabbitMQ(uri string, oauthHandler func(models.OAuthToken) pubsub.AckTy
 		return nil, fmt.Errorf("Error opening RabbitMQ channel: %w", err)
 	}
 
-	err = pubsub.DeclareExchange(ch, "twitch", "topic")
-	if err != nil {
-		con.Close()
-		ch.Close()
-		return nil, fmt.Errorf("Error declaring Twitch exchange: %w", err)
-	}
 	err = pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic")
 	if err != nil {
 		con.Close()

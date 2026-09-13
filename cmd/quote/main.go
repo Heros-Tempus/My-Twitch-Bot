@@ -35,12 +35,7 @@ func (app *App) setupRabbitMQ(rabbitConString string) error {
 		return fmt.Errorf("Error opening RabbitMQ channel: %w", err)
 	}
 	app.Rabbit = ch
-	err = pubsub.DeclareExchange(app.Rabbit, "twitch", "topic")
-	if err != nil {
-		con.Close()
-		ch.Close()
-		return fmt.Errorf("Error declaring Twitch exchange: %w", err)
-	}
+	
 	err = pubsub.DeclareExchange(app.Rabbit, pubsub.ExchangeBot, "topic")
 	if err != nil {
 		con.Close()

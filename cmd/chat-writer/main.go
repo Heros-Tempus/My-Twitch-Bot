@@ -36,9 +36,6 @@ func main() {
 		ch.Close()
 	}()
 
-	if err := pubsub.DeclareExchange(ch, "twitch", "topic"); err != nil {
-		log.Fatal("Error declaring Twitch exchange:", err)
-	}
 	if err := pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic"); err != nil {
 		log.Fatal("Error declaring bot exchange:", err)
 	}
@@ -48,7 +45,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error subscribing to token messages:", err)
 	}
-	err = pubsub.SubscribeJSON(con, "twitch", "chat-writer.outgoing", "twitch.chat.send", pubsub.SimpleQueueTypeDurable, app.handleChat)
+	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueWriterOutbound, pubsub.KeyChatMessage, pubsub.SimpleQueueTypeDurable, app.handleChat)
 	if err != nil {
 		log.Fatal("Error subscribing to writer messages:", err)
 	}

@@ -17,7 +17,7 @@ func (app *App) SendToChat(text string) {
 		User:    "Bot",
 	}
 
-	pubsub.PublishJSON(app.Rabbit, "twitch", "twitch.chat.send", msg)
+	pubsub.PublishJSON(app.Rabbit, pubsub.ExchangeBot, pubsub.KeyChatMessage, msg)
 	log.Printf("PUBLISHED TO CHAT: %s", text)
 }
 
