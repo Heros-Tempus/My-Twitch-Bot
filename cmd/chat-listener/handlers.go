@@ -59,7 +59,7 @@ func BuildCommandRouter(ch *amqp.Channel) func(msg string, user string, m models
 				log.Printf("Error publishing GC command: %v", err)
 			}
 		case "!quote":
-			err := pubsub.PublishJSON(ch, "twitch", "twitch.chat.commands.quote", models.Command{
+			err := pubsub.PublishJSON(ch, pubsub.ExchangeBot, pubsub.KeyCmdQuote, models.Command{
 				User: user,
 				Name: "quote",
 				Args: args,

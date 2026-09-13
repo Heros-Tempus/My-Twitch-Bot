@@ -53,7 +53,7 @@ func (app *App) setupRabbitMQ(rabbitConString string) error {
 		ch.Close()
 		return fmt.Errorf("Error declaring and binding auth refreshed quote queue: %w", err)
 	}
-	err = pubsub.DeclareAndBindQueue(app.Rabbit, "twitch", "twitch.chat.commands.quote", "twitch.chat.commands.quote")
+	err = pubsub.DeclareAndBindQueue(app.Rabbit, pubsub.ExchangeBot, pubsub.QueueQuoteCommands, pubsub.KeyCmdQuote)
 	if err != nil {
 		con.Close()
 		ch.Close()
@@ -65,7 +65,7 @@ func (app *App) setupRabbitMQ(rabbitConString string) error {
 		ch.Close()
 		return fmt.Errorf("Error subscribing to auth refreshed quote messages: %w", err)
 	}
-	err = pubsub.SubscribeJSON(con, "twitch", "twitch.chat.commands.quote", "twitch.chat.commands.quote", pubsub.SimpleQueueTypeDurable, app.HandleCommandMessage)
+	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueQuoteCommands, pubsub.KeyCmdQuote, pubsub.SimpleQueueTypeDurable, app.HandleCommandMessage)
 	if err != nil {
 		con.Close()
 		ch.Close()
