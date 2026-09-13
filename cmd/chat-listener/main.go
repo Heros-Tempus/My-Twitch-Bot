@@ -62,7 +62,7 @@ func main() {
 		connectionStartTime := time.Now()
 		routeHandler := BuildCommandRouter(app.rabbit)
 		revocationHandler := func(revocation SubscriptionRevocation) {
-			err := pubsub.PublishJSON(ch, "auth.requests", "auth.refresh.request", revocation)
+			err := pubsub.PublishJSON(ch, pubsub.ExchangeBot, pubsub.KeyTokenRefreshReq, revocation)
 			if err != nil {
 				log.Printf("Error publishing revocation: %v", err)
 			}

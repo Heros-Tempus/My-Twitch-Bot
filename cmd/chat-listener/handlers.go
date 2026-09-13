@@ -68,7 +68,7 @@ func BuildCommandRouter(ch *amqp.Channel) func(msg string, user string, m models
 				log.Printf("Error publishing quote command: %v", err)
 			}
 		default:
-			err := pubsub.PublishJSON(ch, "twitch", "twitch.chat.overlay.send", m)
+			err := pubsub.PublishJSON(ch, pubsub.ExchangeBot, pubsub.KeyChatOverlay, m)
 			if err != nil {
 				log.Printf("Error publishing chat message: %v", err)
 			}
