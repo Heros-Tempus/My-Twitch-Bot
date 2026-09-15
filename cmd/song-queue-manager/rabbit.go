@@ -18,6 +18,16 @@ func setupRabbitMQSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App
 	if err != nil {
 		return fmt.Errorf("Error declaring Twitch exchange: %w", err)
 	}
+	
+	err = pubsub.DeclareAndBindQueue(ch, "player", "player.requests.status", "player.signals.status_request")
+	if err != nil {
+		log.Printf("Warning: Failed to pre-declare queue-manager status queue: %v", err)
+	}
+	
+	err = pubsub.DeclareAndBindQueue(ch, "player", "player.requests.ready", "player.signals.ready")
+	if err != nil {
+		log.Printf("Warning: Failed to pre-declare queue-manager ready queue: %v", err)
+	}
 	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongManagerCommands, pubsub.KeyCmdSong, pubsub.SimpleQueueTypeDurable, app.handleChatCommand)
 	if err != nil {
 		return fmt.Errorf("Error subscribing to chat commands: %w", err)
@@ -37,10 +47,7 @@ func setupRabbitMQSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App
 }
 
 func (r *RabbitClient) sendToChat(message string) {
-	const exchange = "twitch"
-	const key = "twitch.chat.send"
-	const user = "test user"
-	err := pubsub.PublishJSON(r.ch, exchange, key, models.ChatMessage{Message: message, User: user})
+	err := pubsub.PublishJSON(r.ch, pubsub.ExchangeBot, pubsub.KeyChatMessage, models.ChatMessage{Message: message, User: "bot"})
 	if err != nil {
 		log.Printf("Failed to send message to chat: %v", err)
 	}
