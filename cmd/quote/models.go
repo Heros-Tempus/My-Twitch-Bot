@@ -21,7 +21,6 @@ const (
 	ActionGetByFilters
 )
 
-
 type ParsedQuoteCommand struct {
 	Action    QuoteAction
 	QuoteText string
