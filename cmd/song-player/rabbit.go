@@ -9,21 +9,49 @@ import (
 )
 
 func setupSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App) {
-	_ = pubsub.DeclareExchange(ch, "player", "topic")
-	_ = pubsub.SubscribeJSON(con, "player", "player.responses.track", "player.track.next", pubsub.SimpleQueueTypeDurable, func(payload models.PlayerTrackPayload) pubsub.AckType {
+	err := pubsub.DeclareExchange(ch, "player", "topic")
+	if err != nil {
+		log.Printf("Failed to declare exchange: %v", err)
+	}
+	err = pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic")
+	if err != nil {
+		log.Printf("Failed to declare exchange: %v", err)
+	}
+	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongPlayerControls, pubsub.KeySongPlay)
+	if err != nil {
+		log.Printf("Failed to declare and bind queue: %v", err)
+	}
+	err = pubsub.DeclareAndBindQueue(ch, "player", "player.responses.status", "player.status.response")
+	if err != nil {
+		log.Printf("Failed to declare and bind queue: %v", err)
+	}
+	err = pubsub.DeclareAndBindQueue(ch, "player", "player.responses.skip", "player.action.skip")
+	if err != nil {
+		log.Printf("Failed to declare and bind queue: %v", err)
+	}
+	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongPlayerControls, pubsub.KeySongPlay, pubsub.SimpleQueueTypeDurable, func(payload models.PlayerTrackPayload) pubsub.AckType {
 		app.trackChan <- payload
 		return pubsub.AckTypeAck
 	})
+	if err != nil {
+		log.Fatalf("Failed to subscribe to track responses: %v", err)
+	}
 
-	_ = pubsub.SubscribeJSON(con, "player", "player.responses.status", "player.status.response", pubsub.SimpleQueueTypeDurable, func(payload models.PlayerStatusResponse) pubsub.AckType {
+	err = pubsub.SubscribeJSON(con, "player", "player.responses.status", "player.status.response", pubsub.SimpleQueueTypeDurable, func(payload models.PlayerStatusResponse) pubsub.AckType {
 		app.statusChan <- payload
 		return pubsub.AckTypeAck
 	})
+	if err != nil {
+		log.Fatalf("Failed to subscribe to status responses: %v", err)
+	}
 
-	_ = pubsub.SubscribeJSON(con, "player", "player.responses.skip", "player.action.skip", pubsub.SimpleQueueTypeDurable, func(msg models.EmptySignal) pubsub.AckType {
+	err = pubsub.SubscribeJSON(con, "player", "player.responses.skip", "player.action.skip", pubsub.SimpleQueueTypeDurable, func(msg models.EmptySignal) pubsub.AckType {
 		app.skipChan <- struct{}{}
 		return pubsub.AckTypeAck
 	})
+	if err != nil {
+		log.Fatalf("Failed to subscribe to skip responses: %v", err)
+	}
 }
 
 func (a *App) sendStatusRequest() {

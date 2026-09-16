@@ -19,6 +19,10 @@ func setupRabbitMQSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App
 		return fmt.Errorf("Error declaring Twitch exchange: %w", err)
 	}
 	
+	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongPlayerControls, pubsub.KeySongPlay)
+	if err != nil {
+		log.Printf("Warning: Failed to pre-declare queue-manager song player controls queue: %v", err)
+	}
 	err = pubsub.DeclareAndBindQueue(ch, "player", "player.requests.status", "player.signals.status_request")
 	if err != nil {
 		log.Printf("Warning: Failed to pre-declare queue-manager status queue: %v", err)
@@ -74,10 +78,7 @@ func (r *RabbitClient) SendPlayerStatus(status string, timeRemaining int32) {
 }
 
 func (r *RabbitClient) SendNextTrack(payload models.PlayerTrackPayload) {
-	const exchange = "player"
-	const key = "player.track.next"
-
-	if err := pubsub.PublishJSON(r.ch, exchange, key, payload); err != nil {
+	if err := pubsub.PublishJSON(r.ch, pubsub.ExchangeBot, pubsub.KeySongPlay, payload); err != nil {
 		log.Printf("Failed to send next track to player: %v", err)
 	}
 }
