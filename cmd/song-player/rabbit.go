@@ -17,11 +17,16 @@ func setupSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App) {
 	if err != nil {
 		log.Printf("Failed to declare exchange: %v", err)
 	}
+
 	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongPlayerControls, pubsub.KeySongPlay)
 	if err != nil {
 		log.Printf("Failed to declare and bind queue: %v", err)
 	}
-	err = pubsub.DeclareAndBindQueue(ch, "player", "player.responses.status", "player.status.response")
+	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongManagerStatus, pubsub.KeySongStatusReq)
+	if err != nil {
+		log.Printf("Failed to declare and bind queue: %v", err)
+	}
+	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongManagerSkip, pubsub.KeySongReady)
 	if err != nil {
 		log.Printf("Failed to declare and bind queue: %v", err)
 	}
@@ -29,50 +34,35 @@ func setupSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App) {
 	if err != nil {
 		log.Printf("Failed to declare and bind queue: %v", err)
 	}
-	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongPlayerControls, pubsub.KeySongPlay, pubsub.SimpleQueueTypeDurable, func(payload models.PlayerTrackPayload) pubsub.AckType {
-		app.trackChan <- payload
-		return pubsub.AckTypeAck
-	})
+	err = pubsub.DeclareAndBindQueue(ch, "player", "player.responses.status", "player.action.response")
+	if err != nil {
+		log.Printf("Failed to declare and bind queue: %v", err)
+	}
+
+	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongPlayerControls, pubsub.KeySongPlay, pubsub.SimpleQueueTypeDurable, app.handleTrack)
 	if err != nil {
 		log.Fatalf("Failed to subscribe to track responses: %v", err)
 	}
 
-	err = pubsub.SubscribeJSON(con, "player", "player.responses.status", "player.status.response", pubsub.SimpleQueueTypeDurable, func(payload models.PlayerStatusResponse) pubsub.AckType {
-		app.statusChan <- payload
-		return pubsub.AckTypeAck
-	})
+	err = pubsub.SubscribeJSON(con, "player", "player.responses.status", "player.status.response", pubsub.SimpleQueueTypeDurable, app.handleStatus)
 	if err != nil {
 		log.Fatalf("Failed to subscribe to status responses: %v", err)
 	}
 
-	err = pubsub.SubscribeJSON(con, "player", "player.responses.skip", "player.action.skip", pubsub.SimpleQueueTypeDurable, func(msg models.EmptySignal) pubsub.AckType {
-		app.skipChan <- struct{}{}
-		return pubsub.AckTypeAck
-	})
+	err = pubsub.SubscribeJSON(con, "player", "player.responses.skip", "player.action.skip", pubsub.SimpleQueueTypeDurable, app.handleSkip)
 	if err != nil {
 		log.Fatalf("Failed to subscribe to skip responses: %v", err)
 	}
 }
 
 func (a *App) sendStatusRequest() {
-	const exchange = "player"
-	const key = "player.signals.status_request"
-	const targetQueue = "player.requests.status"
-
-	err := pubsub.DeclareAndBindQueue(a.rabbit, exchange, targetQueue, key)
-	if err != nil {
-		log.Printf("Warning: Failed to pre-declare queue-manager status queue: %v", err)
-	}
-	if err := pubsub.PublishJSON(a.rabbit, exchange, key, models.EmptySignal{}); err != nil {
+	if err := pubsub.PublishJSON(a.rabbit, pubsub.ExchangeBot, pubsub.KeySongStatusReq, models.EmptySignal{}); err != nil {
 		log.Printf("Failed to send status_request: %v", err)
 	}
 }
 
 func (a *App) sendReadySignal() {
-	const exchange = "player"
-	const key = "player.signals.ready"
-
-	if err := pubsub.PublishJSON(a.rabbit, exchange, key, models.EmptySignal{}); err != nil {
+	if err := pubsub.PublishJSON(a.rabbit, pubsub.ExchangeBot, pubsub.KeySongReady, models.EmptySignal{}); err != nil {
 		log.Printf("Failed to send player_ready: %v", err)
 	}
 }

@@ -28,7 +28,8 @@ const (
 
 	// Song Manager
 	QueueSongManagerCommands QueueName = "q_song_manager_commands"
-	QueueSongManagerEvents   QueueName = "q_song_manager_events"
+	QueueSongManagerSkip   QueueName = "q_song_manager_skip"
+	QueueSongManagerStatus QueueName = "q_song_manager_status"
 
 	// Song Player
 	QueueSongPlayerControls QueueName = "q_song_player_controls"

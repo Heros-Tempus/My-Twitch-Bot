@@ -23,12 +23,12 @@ func setupRabbitMQSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App
 	if err != nil {
 		log.Printf("Warning: Failed to pre-declare queue-manager song player controls queue: %v", err)
 	}
-	err = pubsub.DeclareAndBindQueue(ch, "player", "player.requests.status", "player.signals.status_request")
+	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongManagerStatus, pubsub.KeySongStatusReq)
 	if err != nil {
 		log.Printf("Warning: Failed to pre-declare queue-manager status queue: %v", err)
 	}
 	
-	err = pubsub.DeclareAndBindQueue(ch, "player", "player.requests.ready", "player.signals.ready")
+	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongManagerSkip, pubsub.KeySongReady)
 	if err != nil {
 		log.Printf("Warning: Failed to pre-declare queue-manager ready queue: %v", err)
 	}
@@ -37,12 +37,12 @@ func setupRabbitMQSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App
 		return fmt.Errorf("Error subscribing to chat commands: %w", err)
 	}
 
-	err = pubsub.SubscribeJSON(con, "player", "player.requests.status", "player.signals.status_request", pubsub.SimpleQueueTypeDurable, app.handlePlayerStatusRequest)
+	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongManagerStatus, pubsub.KeySongStatusReq, pubsub.SimpleQueueTypeDurable, app.handlePlayerStatusRequest)
 	if err != nil {
 		return fmt.Errorf("Error subscribing to player status requests: %w", err)
 	}
 
-	err = pubsub.SubscribeJSON(con, "player", "player.requests.ready", "player.signals.ready", pubsub.SimpleQueueTypeDurable, app.handlePlayerReady)
+	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongManagerSkip, pubsub.KeySongReady, pubsub.SimpleQueueTypeDurable, app.handlePlayerReady)
 	if err != nil {
 		return fmt.Errorf("Error subscribing to player ready signals: %w", err)
 	}
@@ -61,7 +61,7 @@ func (r *RabbitClient) sendToChat(message string) {
 func (r *RabbitClient) Skip() {
 	const exchange = "player"
 	const key = "player.action.skip"
-	err := pubsub.PublishJSON(r.ch, exchange, key, struct{}{})
+	err := pubsub.PublishJSON(r.ch, exchange, key, models.EmptySignal{})
 	if err != nil {
 		log.Printf("Failed to publish skip signal: %v", err)
 	}

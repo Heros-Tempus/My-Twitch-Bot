@@ -1,7 +1,9 @@
 package main
 
 import (
-	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
+	"sync"
+	"time"
+
 	"github.com/andreykaipov/goobs"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -13,8 +15,7 @@ type App struct {
 	textSource    string
 	sceneName     string
 	textItemId    int
-
-	trackChan  chan models.PlayerTrackPayload
-	statusChan chan models.PlayerStatusResponse
-	skipChan   chan struct{}
+	mu            sync.Mutex
+	timer         *time.Timer
+	skipPending   bool
 }
