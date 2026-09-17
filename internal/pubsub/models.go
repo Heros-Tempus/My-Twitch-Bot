@@ -28,11 +28,12 @@ const (
 
 	// Song Manager
 	QueueSongManagerCommands QueueName = "q_song_manager_commands"
-	QueueSongManagerSkip   QueueName = "q_song_manager_skip"
-	QueueSongManagerStatus QueueName = "q_song_manager_status"
+	QueueSongManagerSkip     QueueName = "q_song_manager_skip"
+	QueueSongManagerStatus   QueueName = "q_song_manager_status"
 
 	// Song Player
-	QueueSongPlayerControls QueueName = "q_song_player_controls"
+	QueueSongPlayerSong QueueName = "q_song_player_song"
+	QueueSongStatusResp QueueName = "q_song_status_response"
 )
 
 // --- Routing Keys ---

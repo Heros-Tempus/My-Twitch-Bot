@@ -10,16 +10,12 @@ import (
 )
 
 func setupRabbitMQSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App) error {
-	err := pubsub.DeclareExchange(ch, "player", "topic")
-	if err != nil {
-		return fmt.Errorf("Error declaring player exchange: %w", err)
-	}
-	err = pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic")
+	err := pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic")
 	if err != nil {
 		return fmt.Errorf("Error declaring Twitch exchange: %w", err)
 	}
-	
-	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongPlayerControls, pubsub.KeySongPlay)
+
+	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongPlayerSong, pubsub.KeySongPlay)
 	if err != nil {
 		log.Printf("Warning: Failed to pre-declare queue-manager song player controls queue: %v", err)
 	}
@@ -27,7 +23,7 @@ func setupRabbitMQSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App
 	if err != nil {
 		log.Printf("Warning: Failed to pre-declare queue-manager status queue: %v", err)
 	}
-	
+
 	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongManagerSkip, pubsub.KeySongReady)
 	if err != nil {
 		log.Printf("Warning: Failed to pre-declare queue-manager ready queue: %v", err)
@@ -59,20 +55,15 @@ func (r *RabbitClient) sendToChat(message string) {
 }
 
 func (r *RabbitClient) Skip() {
-	const exchange = "player"
-	const key = "player.action.skip"
-	err := pubsub.PublishJSON(r.ch, exchange, key, models.EmptySignal{})
+	err := pubsub.PublishJSON(r.ch, pubsub.ExchangeBot, pubsub.KeySongSkip, models.EmptySignal{})
 	if err != nil {
 		log.Printf("Failed to publish skip signal: %v", err)
 	}
 }
 
 func (r *RabbitClient) SendPlayerStatus(status string, timeRemaining int32) {
-	const exchange = "player"
-	const key = "player.status.response"
 	payload := models.PlayerStatusResponse{Status: status, TimeRemaining: timeRemaining}
-
-	if err := pubsub.PublishJSON(r.ch, exchange, key, payload); err != nil {
+	if err := pubsub.PublishJSON(r.ch, pubsub.ExchangeBot, pubsub.KeySongStatusReply, payload); err != nil {
 		log.Printf("Failed to send player status: %v", err)
 	}
 }

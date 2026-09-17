@@ -36,8 +36,18 @@ func main() {
 		ch.Close()
 	}()
 
-	if err := pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic"); err != nil {
+	err = pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic")
+	if err != nil {
 		log.Fatal("Error declaring bot exchange:", err)
+	}
+
+	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueWriterOAuth, pubsub.KeyTokenRefreshed)
+	if err != nil {
+		log.Fatal("Error declaring OAuth queue:", err)
+	}
+	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueWriterOutbound, pubsub.KeyChatMessage)
+	if err != nil {
+		log.Fatal("Error declaring outbound queue:", err)
 	}
 
 	app := newApp()

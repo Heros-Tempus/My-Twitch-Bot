@@ -9,16 +9,11 @@ import (
 )
 
 func setupSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App) {
-	err := pubsub.DeclareExchange(ch, "player", "topic")
+	err := pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic")
 	if err != nil {
 		log.Printf("Failed to declare exchange: %v", err)
 	}
-	err = pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic")
-	if err != nil {
-		log.Printf("Failed to declare exchange: %v", err)
-	}
-
-	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongPlayerControls, pubsub.KeySongPlay)
+	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongPlayerSong, pubsub.KeySongPlay)
 	if err != nil {
 		log.Printf("Failed to declare and bind queue: %v", err)
 	}
@@ -30,26 +25,25 @@ func setupSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App) {
 	if err != nil {
 		log.Printf("Failed to declare and bind queue: %v", err)
 	}
-	err = pubsub.DeclareAndBindQueue(ch, "player", "player.responses.skip", "player.action.skip")
+	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongManagerSkip, pubsub.KeySongSkip)
 	if err != nil {
 		log.Printf("Failed to declare and bind queue: %v", err)
 	}
-	err = pubsub.DeclareAndBindQueue(ch, "player", "player.responses.status", "player.action.response")
+	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongStatusResp, pubsub.KeySongStatusReply)
 	if err != nil {
 		log.Printf("Failed to declare and bind queue: %v", err)
 	}
 
-	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongPlayerControls, pubsub.KeySongPlay, pubsub.SimpleQueueTypeDurable, app.handleTrack)
+
+	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongPlayerSong, pubsub.KeySongPlay, pubsub.SimpleQueueTypeDurable, app.handleTrack)
 	if err != nil {
 		log.Fatalf("Failed to subscribe to track responses: %v", err)
 	}
-
-	err = pubsub.SubscribeJSON(con, "player", "player.responses.status", "player.status.response", pubsub.SimpleQueueTypeDurable, app.handleStatus)
+	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongManagerStatus, pubsub.KeySongStatusReply, pubsub.SimpleQueueTypeDurable, app.handleStatus)
 	if err != nil {
 		log.Fatalf("Failed to subscribe to status responses: %v", err)
 	}
-
-	err = pubsub.SubscribeJSON(con, "player", "player.responses.skip", "player.action.skip", pubsub.SimpleQueueTypeDurable, app.handleSkip)
+	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongManagerSkip, pubsub.KeySongSkip, pubsub.SimpleQueueTypeDurable, app.handleSkip)
 	if err != nil {
 		log.Fatalf("Failed to subscribe to skip responses: %v", err)
 	}
