@@ -16,7 +16,7 @@ func (a *App) popAndPlayNextTrack(ctx context.Context) {
 	if err != nil {
 		a.isIdle = true
 		_ = a.service.queries.ClearCurrentPlayback(ctx)
-		a.rabbit.SendPlayerStatus("idle", 0)
+		a.SendPlayerStatus("idle", 0)
 		return
 	}
 
@@ -46,8 +46,8 @@ func (a *App) popAndPlayNextTrack(ctx context.Context) {
 		Duration:          trackData.DurationSeconds.Int32,
 		AttributionString: buildAttribution(t),
 	}
-	a.rabbit.SendNextTrack(payload)
-	a.rabbit.sendToChat("Now playing: " + payload.AttributionString)
+	a.SendNextTrack(payload)
+	a.sendToChat("Now playing: " + payload.AttributionString)
 }
 
 func (s *Service) StopAndWipe(ctx context.Context) error {

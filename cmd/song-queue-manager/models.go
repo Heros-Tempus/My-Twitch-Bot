@@ -37,12 +37,9 @@ type Track struct {
 	OriginalComposer string
 }
 
-type RabbitClient struct {
-	ch *amqp.Channel
-}
-
 type App struct {
-	rabbit  *RabbitClient
+	rabbitChan *amqp.Channel
+	rabbitConn *amqp.Connection
 	service *Service
 	mu      sync.Mutex
 	isIdle  bool

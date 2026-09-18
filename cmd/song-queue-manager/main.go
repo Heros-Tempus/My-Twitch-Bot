@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -28,38 +27,15 @@ func main() {
 		dbConn.Close()
 	}()
 	log.Println("Connected to PostgreSQL")
-
 	service := NewService(dbConn)
 
-	rabbitConString := os.Getenv("RABBIT_CON_STRING")
-	log.Printf("RabbitMQ connection string: %s", rabbitConString)
-
-	con, err := pubsub.ConnectWithBackoff(rabbitConString, 5)
-	if err != nil {
-		log.Fatal("Error connecting to RabbitMQ:", err)
-	}
-	defer func() {
-		log.Println("Closing RabbitMQ connection...")
-		con.Close()
-	}()
-
-	ch, err := con.Channel()
-	if err != nil {
-		log.Fatal("Error opening RabbitMQ channel:", err)
-	}
-	defer func() {
-		log.Println("Closing RabbitMQ channel...")
-		ch.Close()
-	}()
-
-	rabbitClient := &RabbitClient{ch: ch}
 	app := &App{
-		rabbit:  rabbitClient,
 		service: service,
 		isIdle:  true,
 	}
 
-	err = setupRabbitMQSubscriptions(con, ch, app)
+	rabbitConString := os.Getenv("RABBIT_CON_STRING")
+	err = app.setupRabbitMQ(rabbitConString)
 	if err != nil {
 		log.Fatal("Error setting up RabbitMQ subscriptions:", err)
 	}
@@ -73,6 +49,15 @@ func main() {
 
 	log.Println("Shutdown signal received. Initiating graceful shutdown...")
 
+	if app.rabbitChan != nil {
+		log.Println("Closing RabbitMQ channel...")
+		app.rabbitChan.Close()
+	}
+	if app.rabbitConn != nil {
+		log.Println("Closing RabbitMQ connection...")
+		app.rabbitConn.Close()
+	}
+	
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelShutdown()
 
