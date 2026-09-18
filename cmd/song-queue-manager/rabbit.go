@@ -15,29 +15,14 @@ func setupRabbitMQSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App
 		return fmt.Errorf("Error declaring Twitch exchange: %w", err)
 	}
 
-	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongPlayerSong, pubsub.KeySongPlay)
-	if err != nil {
-		log.Printf("Warning: Failed to pre-declare queue-manager song player controls queue: %v", err)
-	}
-	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongManagerStatus, pubsub.KeySongStatusReq)
-	if err != nil {
-		log.Printf("Warning: Failed to pre-declare queue-manager status queue: %v", err)
-	}
-
-	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongManagerSkip, pubsub.KeySongReady)
-	if err != nil {
-		log.Printf("Warning: Failed to pre-declare queue-manager ready queue: %v", err)
-	}
 	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongManagerCommands, pubsub.KeyCmdSong, pubsub.SimpleQueueTypeDurable, app.handleChatCommand)
 	if err != nil {
 		return fmt.Errorf("Error subscribing to chat commands: %w", err)
 	}
-
 	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongManagerStatus, pubsub.KeySongStatusReq, pubsub.SimpleQueueTypeDurable, app.handlePlayerStatusRequest)
 	if err != nil {
 		return fmt.Errorf("Error subscribing to player status requests: %w", err)
 	}
-
 	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongManagerSkip, pubsub.KeySongReady, pubsub.SimpleQueueTypeDurable, app.handlePlayerReady)
 	if err != nil {
 		return fmt.Errorf("Error subscribing to player ready signals: %w", err)

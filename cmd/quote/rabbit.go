@@ -27,18 +27,6 @@ func (app *App) setupRabbitMQ(rabbitConString string) error {
 		ch.Close()
 		return fmt.Errorf("Error declaring bot exchange: %w", err)
 	}
-	err = pubsub.DeclareAndBindQueue(app.Rabbit, pubsub.ExchangeBot, pubsub.QueueQuoteOAuth, pubsub.KeyTokenRefreshed)
-	if err != nil {
-		con.Close()
-		ch.Close()
-		return fmt.Errorf("Error declaring and binding auth refreshed quote queue: %w", err)
-	}
-	err = pubsub.DeclareAndBindQueue(app.Rabbit, pubsub.ExchangeBot, pubsub.QueueQuoteCommands, pubsub.KeyCmdQuote)
-	if err != nil {
-		con.Close()
-		ch.Close()
-		return fmt.Errorf("Error declaring and binding twitch chat commands quote queue: %w", err)
-	}
 	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueQuoteOAuth, pubsub.KeyTokenRefreshed, pubsub.SimpleQueueTypeDurable, app.HandleAuthMessage)
 	if err != nil {
 		con.Close()

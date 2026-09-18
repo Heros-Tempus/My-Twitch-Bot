@@ -51,17 +51,6 @@ func main() {
 	if err = pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic"); err != nil {
 		log.Fatalf("Failed to declare bot exchange: %v", err)
 	}
-	if err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueOverlayOAuth, pubsub.KeyTokenRefreshed); err != nil {
-		log.Fatalf("Failed to declare auth queue: %v", err)
-	}
-
-	if err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueOverlayMessages, pubsub.KeyChatOverlay); err != nil {
-		log.Fatalf("Failed to declare chat queue: %v", err)
-	}
-	if err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueOverlayAlerts, pubsub.KeyTokenFailed); err != nil {
-		log.Fatalf("Failed to declare auth failed queue: %v", err)
-	}
-
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", app.handleWebSocket)
 	mux.HandleFunc("/chat.html", app.serveHTML)

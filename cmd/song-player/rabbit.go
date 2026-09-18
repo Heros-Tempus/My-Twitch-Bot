@@ -13,27 +13,6 @@ func setupSubscriptions(con *amqp.Connection, ch *amqp.Channel, app *App) {
 	if err != nil {
 		log.Printf("Failed to declare exchange: %v", err)
 	}
-	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongPlayerSong, pubsub.KeySongPlay)
-	if err != nil {
-		log.Printf("Failed to declare and bind queue: %v", err)
-	}
-	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongManagerStatus, pubsub.KeySongStatusReq)
-	if err != nil {
-		log.Printf("Failed to declare and bind queue: %v", err)
-	}
-	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongManagerSkip, pubsub.KeySongReady)
-	if err != nil {
-		log.Printf("Failed to declare and bind queue: %v", err)
-	}
-	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongManagerSkip, pubsub.KeySongSkip)
-	if err != nil {
-		log.Printf("Failed to declare and bind queue: %v", err)
-	}
-	err = pubsub.DeclareAndBindQueue(ch, pubsub.ExchangeBot, pubsub.QueueSongStatusResp, pubsub.KeySongStatusReply)
-	if err != nil {
-		log.Printf("Failed to declare and bind queue: %v", err)
-	}
-
 
 	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueSongPlayerSong, pubsub.KeySongPlay, pubsub.SimpleQueueTypeDurable, app.handleTrack)
 	if err != nil {
