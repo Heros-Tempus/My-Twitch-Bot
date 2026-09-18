@@ -23,7 +23,7 @@ func startFileServer() {
 	}()
 }
 
-func buildBrowserSourceURL(host, videoID string) string {
+func buildEmbededPlayerURL(host, videoID string) string {
 	u := url.URL{
 		Scheme: "http",
 		Host:   net.JoinHostPort(host, "8000"),
@@ -33,4 +33,16 @@ func buildBrowserSourceURL(host, videoID string) string {
 	q.Set("v", videoID)
 	u.RawQuery = q.Encode()
 	return u.String()
+}
+
+func buildYouTubeURL(videoID string) string {
+    u := &url.URL{
+        Scheme: "https",
+        Host:   "www.youtube.com",
+        Path:   "/watch",
+    }
+    q := u.Query()
+    q.Set("v", videoID)
+    u.RawQuery = q.Encode()
+    return u.String()
 }

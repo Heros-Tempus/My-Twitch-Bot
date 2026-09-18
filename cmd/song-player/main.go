@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 	"github.com/andreykaipov/goobs"
 	"github.com/andreykaipov/goobs/api/requests/sceneitems"
 	"github.com/joho/godotenv"
@@ -17,6 +16,7 @@ import (
 func main() {
 	_ = godotenv.Load(".env")
 
+	desktopIP := os.Getenv("DESKTOP_IP")
 	obsHost := os.Getenv("OBS_IP")
 	obsPort := os.Getenv("OBS_PORT")
 	obsPassword := os.Getenv("OBS_PASSWORD")
@@ -25,32 +25,18 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to connect to OBS:", err)
 	}
-	defer obsClient.Disconnect()
 	log.Println("Connected to OBS WebSocket")
 
 	startFileServer()
 
-	rabbitConString := os.Getenv("RABBIT_CON_STRING")
-	con, err := pubsub.ConnectWithBackoff(rabbitConString, 5)
-	if err != nil {
-		log.Fatal("Error connecting to RabbitMQ:", err)
-	}
-	defer con.Close()
-
-	ch, err := con.Channel()
-	if err != nil {
-		log.Fatal("Error opening RabbitMQ channel:", err)
-	}
-	defer ch.Close()
-	log.Println("Connected to RabbitMQ")
-
 	app := &App{
-		rabbit:        ch,
 		obs:           obsClient,
 		sceneName:     os.Getenv("OBS_SCENE_NAME"),
 		browserSource: os.Getenv("OBS_BROWSER_SOURCE_NAME"),
 		textSource:    os.Getenv("OBS_TEXT_SOURCE_NAME"),
+		desktopIP:     desktopIP,
 	}
+
 	idResp, err := app.obs.SceneItems.GetSceneItemId(&sceneitems.GetSceneItemIdParams{
 		SceneName:  &app.sceneName,
 		SourceName: &app.textSource,
@@ -61,7 +47,10 @@ func main() {
 	app.textItemId = idResp.SceneItemId
 	log.Printf("Successfully linked to OBS Text Source. Scene Item ID: %v", app.textItemId)
 
-	setupSubscriptions(con, ch, app)
+	rabbitConString := os.Getenv("RABBIT_CON_STRING")
+	if err := app.setupRabbitMQ(rabbitConString); err != nil {
+		log.Fatal("Error setting up RabbitMQ:", err)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -70,9 +59,24 @@ func main() {
 	app.sendStatusRequest()
 
 	log.Println("Player is running. Waiting for instructions...")
+	
 	<-ctx.Done()
+	log.Println("\nReceived shutdown signal. Initiating graceful shutdown...")
+
 	app.stopTimer()
 	app.setObsIdle()
+	
+	if app.rabbitChan != nil {
+		log.Println("Closing RabbitMQ channel...")
+		app.rabbitChan.Close()
+	}
+	if app.rabbitConn != nil {
+		log.Println("Closing RabbitMQ connection...")
+		app.rabbitConn.Close()
+	}
+	
+	log.Println("Disconnecting from OBS...")
+	app.obs.Disconnect()
 
 	log.Println("Player shut down gracefully.")
 }

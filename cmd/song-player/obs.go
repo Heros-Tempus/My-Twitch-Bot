@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"os"
 	"time"
 
 	"github.com/andreykaipov/goobs/api/requests/filters"
@@ -37,7 +36,11 @@ func (a *App) setObsIdle() {
 }
 
 func (a *App) setObsActive(url, attribution string) {
-	url = buildBrowserSourceURL(os.Getenv("DESKTOP_IP"), url)
+	if a.desktopIP != "" {
+		url = buildEmbededPlayerURL(a.desktopIP, url)
+	} else {
+		url = buildYouTubeURL(url)
+	}
 	_, err := a.obs.Inputs.SetInputSettings(&inputs.SetInputSettingsParams{
 		InputName:     &a.browserSource,
 		InputSettings: map[string]interface{}{"url": url},

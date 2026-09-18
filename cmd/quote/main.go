@@ -15,7 +15,7 @@ import (
 
 type App struct {
 	DB         *database.Queries
-	RabbitCon *amqp.Connection
+	RabbitConn *amqp.Connection
 	RabbitChann     *amqp.Channel
 	TokenCache *TokenCache
 	OwnerID    string
@@ -59,8 +59,8 @@ func main() {
 	if app.RabbitChann != nil {
 		app.RabbitChann.Close()
 	}
-	if app.RabbitCon != nil {
-		app.RabbitCon.Close()
+	if app.RabbitConn != nil {
+		app.RabbitConn.Close()
 	}
 
 	log.Println("Graceful shutdown complete. Exiting.")
