@@ -6,6 +6,7 @@ import (
 
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	"github.com/coder/websocket"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type ChatUser struct {
@@ -38,28 +39,9 @@ type OverlayCache struct {
 	Badges map[string]string
 }
 
-func NewOverlayCache() *OverlayCache {
-	return &OverlayCache{
-		Emotes: make(map[string]Emote),
-		Badges: make(map[string]string),
-	}
-}
-
-func (c *OverlayCache) UpdateBadges(newBadges map[string]string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.Badges = newBadges
-}
-
-func (c *OverlayCache) UpdateEmotes(newEmotes map[string]Emote) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for k, v := range newEmotes {
-		c.Emotes[k] = v
-	}
-}
-
 type App struct {
+	rabbitConn     *amqp.Connection
+	rabbitChan     *amqp.Channel
 	Cache          *OverlayCache
 	Clients        map[*websocket.Conn]context.CancelFunc
 	ClientsMu      sync.Mutex
@@ -79,5 +61,26 @@ func NewApp() *App {
 			"#rainbow":    "effect-rainbow",
 			"#shake":      "effect-shake",
 		},
+	}
+}
+
+func NewOverlayCache() *OverlayCache {
+	return &OverlayCache{
+		Emotes: make(map[string]Emote),
+		Badges: make(map[string]string),
+	}
+}
+
+func (c *OverlayCache) UpdateBadges(newBadges map[string]string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.Badges = newBadges
+}
+
+func (c *OverlayCache) UpdateEmotes(newEmotes map[string]Emote) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for k, v := range newEmotes {
+		c.Emotes[k] = v
 	}
 }

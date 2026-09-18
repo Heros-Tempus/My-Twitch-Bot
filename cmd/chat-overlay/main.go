@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -10,21 +9,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 	"github.com/joho/godotenv"
 )
 
 func main() {
 	_ = godotenv.Load()
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
+	
+	ownerID := os.Getenv("OWNER_ID")
+	rabbitConString := os.Getenv("RABBIT_CON_STRING")
+	
 	log.Println("Booting chat-overlay service...")
 	app := NewApp()
 
-	ownerID := os.Getenv("OWNER_ID")
-	rabbitConstring := os.Getenv("RABBIT_CON_STRING")
-	fmt.Printf("RabbitMQ URI: %s\n", rabbitConstring)
 	log.Println("Fetching 3rd Party Emotes...")
 	if err := fetch7TVEmotes(ownerID, app.Cache); err != nil {
 		log.Printf("Failed to fetch 7TV emotes: %v", err)
@@ -36,21 +32,6 @@ func main() {
 		log.Printf("Failed to fetch FFZ emotes: %v", err)
 	}
 
-	conn, err := pubsub.ConnectWithBackoff(rabbitConstring, 5)
-	if err != nil {
-		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
-	}
-	defer conn.Close()
-
-	ch, err := conn.Channel()
-	if err != nil {
-		log.Fatalf("Failed to open RabbitMQ channel: %v", err)
-	}
-	defer ch.Close()
-
-	if err = pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic"); err != nil {
-		log.Fatalf("Failed to declare bot exchange: %v", err)
-	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", app.handleWebSocket)
 	mux.HandleFunc("/chat.html", app.serveHTML)
@@ -63,14 +44,12 @@ func main() {
 		}
 	}()
 
-	err = pubsub.SubscribeJSON(conn, pubsub.ExchangeBot, pubsub.QueueOverlayOAuth, pubsub.KeyTokenRefreshed, pubsub.SimpleQueueTypeDurable, app.handleAuthUpdate)
-	if err != nil {
-		log.Fatalf("Failed to subscribe to auth: %v", err)
+	if err := app.setupRabbitMQ(rabbitConString); err != nil {
+		log.Fatalf("Error setting up RabbitMQ: %v", err)
 	}
-	err = pubsub.SubscribeJSON(conn, pubsub.ExchangeBot, pubsub.QueueOverlayAlerts, pubsub.KeyTokenFailed, pubsub.SimpleQueueTypeDurable, app.handleAuthFailure)
-	if err != nil {
-		log.Fatalf("Failed to subscribe to auth failures: %v", err)
-	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	log.Println("Waiting for initial OAuth token from auth service...")
 
@@ -79,12 +58,19 @@ func main() {
 		log.Println("Token received. Ready to process chat.")
 	case <-ctx.Done():
 		log.Println("Shutdown signal received during boot. Exiting.")
-		server.Shutdown(context.Background())
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		server.Shutdown(shutdownCtx)
+		if app.rabbitChan != nil {
+			app.rabbitChan.Close()
+		}
+		if app.rabbitConn != nil {
+			app.rabbitConn.Close()
+		}
 		return
 	}
 
-	err = pubsub.SubscribeJSON(conn, pubsub.ExchangeBot, pubsub.QueueOverlayMessages, pubsub.KeyChatOverlay, pubsub.SimpleQueueTypeDurable, app.handleIncomingMessage)
-	if err != nil {
+	if err := app.subscribeToChat(); err != nil {
 		log.Fatalf("Failed to subscribe to chat: %v", err)
 	}
 
@@ -95,6 +81,15 @@ func main() {
 	defer cancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("HTTP server shutdown error: %v", err)
+	}
+
+	if app.rabbitChan != nil {
+		log.Println("Closing RabbitMQ channel...")
+		app.rabbitChan.Close()
+	}
+	if app.rabbitConn != nil {
+		log.Println("Closing RabbitMQ connection...")
+		app.rabbitConn.Close()
 	}
 
 	log.Println("Graceful shutdown complete.")
