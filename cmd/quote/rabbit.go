@@ -19,24 +19,28 @@ func (app *App) setupRabbitMQ(rabbitConString string) error {
 		con.Close()
 		return fmt.Errorf("Error opening RabbitMQ channel: %w", err)
 	}
-	app.Rabbit = ch
+	
+	app.RabbitCon = con
+	app.RabbitChann = ch
 
-	err = pubsub.DeclareExchange(app.Rabbit, pubsub.ExchangeBot, "topic")
+	err = pubsub.DeclareExchange(app.RabbitChann, pubsub.ExchangeBot, "topic")
 	if err != nil {
-		con.Close()
-		ch.Close()
+		app.RabbitChann.Close()
+		app.RabbitCon.Close()
 		return fmt.Errorf("Error declaring bot exchange: %w", err)
 	}
+	
 	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueQuoteOAuth, pubsub.KeyTokenRefreshed, pubsub.SimpleQueueTypeDurable, app.HandleAuthMessage)
 	if err != nil {
-		con.Close()
-		ch.Close()
+		app.RabbitChann.Close()
+		app.RabbitCon.Close()
 		return fmt.Errorf("Error subscribing to auth refreshed quote messages: %w", err)
 	}
+	
 	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueQuoteCommands, pubsub.KeyCmdQuote, pubsub.SimpleQueueTypeDurable, app.HandleCommandMessage)
 	if err != nil {
-		con.Close()
-		ch.Close()
+		app.RabbitChann.Close()
+		app.RabbitCon.Close()
 		return fmt.Errorf("Error subscribing to quote commands: %w", err)
 	}
 	return nil
