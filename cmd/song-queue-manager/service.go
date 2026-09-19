@@ -56,10 +56,7 @@ func (a *App) popAndPlayNextTrack(ctx context.Context) {
 		}
 
 		log.Printf("Track %s (%s) is unavailable. Disabling in database...", trackData.ID, trackData.Track)
-
-		// TODO: Add disable query here
-		// _ = a.service.queries.DisableTrack(ctx, trackData.ID)
-
+		_ = a.service.queries.DisableTrack(ctx, trackData.ID)
 	}
 }
 func (s *Service) StopAndWipe(ctx context.Context) error {

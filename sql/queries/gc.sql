@@ -12,6 +12,7 @@ WITH selected_tracks AS (
            OR source_media ILIKE '%' || REPLACE(REPLACE(sqlc.narg('source_media')::text, '%', '\%'), '_', '\_') || '%' ESCAPE '\')
       AND (sqlc.narg('original_composer')::text IS NULL
            OR original_composer ILIKE '%' || REPLACE(REPLACE(sqlc.narg('original_composer')::text, '%', '\%'), '_', '\_') || '%' ESCAPE '\')
+      AND enabled = true
     ORDER BY RANDOM()
     LIMIT GREATEST(1, COALESCE(sqlc.narg('limit_count')::integer, 1))
 )
@@ -71,3 +72,6 @@ FROM queue q
 JOIN tracks t ON q.video_id = t.video_id
 ORDER BY q.position ASC
 LIMIT 5;
+
+-- name: DisableTrack :exec
+UPDATE tracks SET enabled = false WHERE video_id = $1;

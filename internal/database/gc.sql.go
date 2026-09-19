@@ -19,6 +19,15 @@ func (q *Queries) ClearCurrentPlayback(ctx context.Context) error {
 	return err
 }
 
+const disableTrack = `-- name: DisableTrack :exec
+UPDATE tracks SET enabled = false WHERE video_id = $1
+`
+
+func (q *Queries) DisableTrack(ctx context.Context, videoID string) error {
+	_, err := q.db.ExecContext(ctx, disableTrack, videoID)
+	return err
+}
+
 const getCurrentPlayback = `-- name: GetCurrentPlayback :one
 SELECT id, video_id, started_at, duration_seconds FROM current_playback WHERE id = 1
 `
@@ -144,6 +153,7 @@ WITH selected_tracks AS (
            OR source_media ILIKE '%' || REPLACE(REPLACE($4::text, '%', '\%'), '_', '\_') || '%' ESCAPE '\')
       AND ($5::text IS NULL
            OR original_composer ILIKE '%' || REPLACE(REPLACE($5::text, '%', '\%'), '_', '\_') || '%' ESCAPE '\')
+      AND enabled = true
     ORDER BY RANDOM()
     LIMIT GREATEST(1, COALESCE($6::integer, 1))
 )
