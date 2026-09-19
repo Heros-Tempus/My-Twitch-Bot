@@ -50,3 +50,42 @@ func refreshOath(token models.OAuthToken) (models.OAuthToken, error) {
 	log.Printf("Successfully refreshed Oauth. Token active for another %v", time.Until(token.ExpiresAt).Round(time.Second))
 	return token, nil
 }
+
+func exchangeAuthCode(code, clientID, clientSecret, redirectURI string) (models.OAuthToken, error) {
+	endpoint := "https://id.twitch.tv/oauth2/token"
+
+	data := url.Values{}
+	data.Set("client_id", clientID)
+	data.Set("client_secret", clientSecret)
+	data.Set("code", code)
+	data.Set("grant_type", "authorization_code")
+	data.Set("redirect_uri", redirectURI)
+
+	req, err := http.NewRequest("POST", endpoint, strings.NewReader(data.Encode()))
+	if err != nil {
+		return models.OAuthToken{}, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return models.OAuthToken{}, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return models.OAuthToken{}, fmt.Errorf("twitch API returned status code: %d", resp.StatusCode)
+	}
+
+	var tokenResp TwitchTokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return models.OAuthToken{}, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return models.OAuthToken{
+		Token:     tokenResp.AccessToken,
+		Refresh:   tokenResp.RefreshToken,
+		ExpiresAt: time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second),
+	}, nil
+}

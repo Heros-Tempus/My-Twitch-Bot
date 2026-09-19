@@ -49,13 +49,6 @@ func (a *App) updateToken(msg models.OAuthToken) bool {
 	return true
 }
 
-func (a *App) revokeToken() {
-	a.tokenMu.Lock()
-	defer a.tokenMu.Unlock()
-	a.hasValidToken = false
-	a.isRevoked = true
-}
-
 func (a *App) invalidateForRefresh() bool {
 	a.tokenMu.Lock()
 	defer a.tokenMu.Unlock()

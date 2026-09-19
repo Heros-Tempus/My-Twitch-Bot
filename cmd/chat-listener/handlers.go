@@ -9,12 +9,6 @@ import (
 )
 
 func (a *App) getOAuth(msg models.OAuthToken) pubsub.AckType {
-	if msg.Token == "" {
-		a.revokeToken()
-		log.Println("Received error signal from Auth, shutting down")
-		return pubsub.AckTypeAck
-	}
-
 	updated := a.updateToken(msg)
 	if !updated {
 		log.Println("Received token older than current token")

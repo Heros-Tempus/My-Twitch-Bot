@@ -9,31 +9,50 @@ import (
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/database"
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 )
-
 func (a *App) loadOAuth(botID string) {
+	clientID := os.Getenv("CLIENT_ID")
+	clientSecret := os.Getenv("CLIENT_SECRET")
+	
 	auth, err := a.db.GetAuth(context.Background(), botID)
-	if err != nil {
-		log.Printf("Auth not found or error reading from DB: %v", err)
-		a.loadEnvOAuth(botID)
+	if err == nil {
+		oauth, refreshErr := refreshOath(models.OAuthToken{
+			BotAccountID: auth.TwitchBotAccountID,
+			OwnerID:      auth.TwitchOwnerID,
+			Token:        auth.OauthKey,
+			Refresh:      auth.OauthRefreshKey,
+			ClientID:     auth.TwitchClientID,
+			ClientSecret: auth.TwitchClientSecret,
+			ExpiresAt:    auth.OauthExpiresAt.Time,
+		})
+		
+		if refreshErr == nil {
+			a.oauth = oauth
+			return
+		}
+		log.Printf("Failed to refresh DB token: %v", refreshErr)
+	} else {
+		log.Printf("No valid auth found in DB for bot %s.", botID)
+	}
+
+	err = a.runManualAuthFlow(botID, clientID, clientSecret)
+	if err == nil {
+		_, dbErr := a.db.SetAuth(context.Background(), database.SetAuthParams{
+			TwitchBotAccountID: botID,
+			TwitchOwnerID:      a.oauth.OwnerID,
+			TwitchClientID:     clientID,
+			TwitchClientSecret: clientSecret,
+			OauthKey:           a.oauth.Token,
+			OauthRefreshKey:    a.oauth.Refresh,
+		})
+		if dbErr != nil {
+			log.Printf("Warning: Failed to save newly granted token to DB: %v", dbErr)
+		}
 		return
 	}
 	
-	oauth, err := refreshOath(models.OAuthToken{
-		BotAccountID: auth.TwitchBotAccountID,
-		OwnerID:      auth.TwitchOwnerID,
-		Token:        auth.OauthKey,
-		Refresh:      auth.OauthRefreshKey,
-		ClientID:     auth.TwitchClientID,
-		ClientSecret: auth.TwitchClientSecret,
-		ExpiresAt:    auth.OauthExpiresAt.Time,
-	})
+	log.Printf("Manual authorization failed or timed out: %v", err)
 	
-	if err != nil {
-		log.Printf("Failed to refresh OAuth token using DB data: %v", err)
-		a.loadEnvOAuth(botID)
-		return
-	}
-	a.oauth = oauth
+	a.loadEnvOAuth(botID)
 }
 
 func (a *App) loadEnvOAuth(botID string) {

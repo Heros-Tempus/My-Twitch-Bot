@@ -76,10 +76,12 @@ func (a *App) setupRabbitMQ(uri string) error {
 
 func (a *App) publishOAuth(err error) {
 	if err != nil {
-		if pubErr := pubsub.PublishJSON(a.rabbitChan, pubsub.ExchangeBot, pubsub.KeyTokenFailed, models.OAuthToken{}); pubErr != nil {
+		log.Printf("Publishing auth failed message to RabbitMQ: %v", err)
+		if pubErr := pubsub.PublishJSON(a.rabbitChan, pubsub.ExchangeBot, pubsub.KeyTokenFailed, models.EmptySignal{}); pubErr != nil {
 			log.Println("Error publishing auth failed message to RabbitMQ:", pubErr)
 			return
 		}
+		return
 	}
 	if pubErr := pubsub.PublishJSON(a.rabbitChan, pubsub.ExchangeBot, pubsub.KeyTokenRefreshed, a.oauth); pubErr != nil {
 		log.Println("Error publishing OAuth token to RabbitMQ:", pubErr)

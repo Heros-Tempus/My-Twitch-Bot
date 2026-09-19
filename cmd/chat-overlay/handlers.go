@@ -25,9 +25,29 @@ func (a *App) handleAuthUpdate(msg models.OAuthToken) pubsub.AckType {
 	return pubsub.AckTypeAck
 }
 
-func (a *App) handleAuthFailure(msg models.OAuthToken) pubsub.AckType {
-	log.Println("Received OAuth failure signal.")
-	a.broadcastMessage([]byte("Received OAuth failure signal."))
+func (a *App) handleAuthFailure(msg models.EmptySignal) pubsub.AckType {
+	log.Println("Received OAuth failure signal. Broadcasting alert to overlay.")
+
+	alertMsg := models.OverlayMessage{
+		DisplayName: "SYSTEM",
+		Color:       "#FF0000", 
+		RawText:     "ACTION REQUIRED: Twitch OAuth Token Failed! Check desktop console to authorize.",
+		Fragments: []models.ChatFragment{
+			{
+				Type: "text",
+				Text: "ACTION REQUIRED: Twitch OAuth Token Failed! Check desktop console to authorize.",
+			},
+		},
+		Effects: []string{"effect-shake"},
+	}
+
+	payload, err := json.Marshal(alertMsg)
+	if err == nil {
+		a.broadcastMessage(payload)
+	} else {
+		log.Printf("Failed to marshal auth failure alert: %v", err)
+	}
+
 	return pubsub.AckTypeNackDiscard
 }
 
