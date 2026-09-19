@@ -3,12 +3,10 @@ package main
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/database"
 	"github.com/joho/godotenv"
@@ -50,15 +48,6 @@ func main() {
 	defer stop()
 
 	log.Println("Auth service is running. Waiting for shutdown signal...")
-
-	go func() {
-		time.Sleep(3 * time.Minute)
-		for {
-			time.Sleep(3 * time.Second)
-			log.Println("Publishing test OAuth error signal...")
-			app.publishOAuth(fmt.Errorf("test"))
-		}
-	}()
 
 	// Blocks until ctx is cancelled
 	app.run(ctx)
