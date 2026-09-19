@@ -11,7 +11,8 @@ import (
 )
 
 type App struct {
-	rabbit *amqp.Channel
+	rabbitConn *amqp.Connection
+	rabbitChan     *amqp.Channel
 
 	tokenMu       sync.RWMutex
 	token         models.OAuthToken

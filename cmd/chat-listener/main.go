@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 	"github.com/joho/godotenv"
 )
 
@@ -20,12 +19,9 @@ func main() {
 
 	app := newApp()
 	rabbitConString := os.Getenv("RABBIT_CON_STRING")
-	ch, err := setupRabbitMQ(rabbitConString, app.getOAuth)
-	if err != nil {
+	if err := app.setupRabbitMQ(rabbitConString); err != nil {
 		log.Fatalf("Error setting up RabbitMQ: %v", err)
 	}
-	defer ch.Close()
-	app.rabbit = ch
 
 	log.Println("Waiting for first token...")
 	select {
@@ -33,9 +29,9 @@ func main() {
 		log.Println("First Token Received.")
 	case <-ctx.Done():
 		log.Println("Shutting down before token received.")
+		cleanupRabbitMQ(app)
 		return
 	}
-	log.Println("First Token Received.")
 
 	initialBackoff := 2 * time.Second
 	maxBackoff := 2 * time.Minute
@@ -46,6 +42,7 @@ func main() {
 			log.Println("Bot is shutting down...")
 			break
 		}
+		
 		tkn, valid := app.getToken()
 		if !valid {
 			log.Println("Token is currently invalid or revoked. Waiting before retry...")
@@ -55,25 +52,20 @@ func main() {
 			}
 			continue
 		}
+		
 		connCtx, cancelConn := context.WithCancel(ctx)
-
 		app.setConnectionCancel(cancelConn)
 
 		connectionStartTime := time.Now()
-		routeHandler := BuildCommandRouter(app.rabbit)
-		revocationHandler := func(revocation SubscriptionRevocation) {
-			err := pubsub.PublishJSON(ch, pubsub.ExchangeBot, pubsub.KeyTokenRefreshReq, revocation)
-			if err != nil {
-				log.Printf("Error publishing revocation: %v", err)
-			}
-		}
-		err := ListenToTwitch(connCtx, tkn, routeHandler, revocationHandler, app.invalidateForRefresh)
+		
+		err := ListenToTwitch(connCtx, tkn, app.RouteCommand, app.HandleRevocation, app.invalidateForRefresh)
 
 		cancelConn()
 
 		if time.Since(connectionStartTime) > 60*time.Second {
 			currentBackoff = initialBackoff
 		}
+		
 		if ctx.Err() != nil {
 			continue
 		}
@@ -90,5 +82,19 @@ func main() {
 		if currentBackoff > maxBackoff {
 			currentBackoff = maxBackoff
 		}
+	}
+
+	cleanupRabbitMQ(app)
+	log.Println("Graceful shutdown complete.")
+}
+
+func cleanupRabbitMQ(app *App) {
+	if app.rabbitChan != nil {
+		log.Println("Closing RabbitMQ channel...")
+		app.rabbitChan.Close()
+	}
+	if app.rabbitConn != nil {
+		log.Println("Closing RabbitMQ connection...")
+		app.rabbitConn.Close()
 	}
 }

@@ -4,36 +4,36 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func setupRabbitMQ(uri string, oauthHandler func(models.OAuthToken) pubsub.AckType) (*amqp.Channel, error) {
+func (a *App) setupRabbitMQ(uri string) error {
 	con, err := pubsub.ConnectWithBackoff(uri, 5)
 	if err != nil {
-		return nil, fmt.Errorf("Error connecting to RabbitMQ: %w", err)
+		return fmt.Errorf("error connecting to RabbitMQ: %w", err)
 	}
 	log.Println("Connected to RabbitMQ")
 
 	ch, err := con.Channel()
 	if err != nil {
 		con.Close()
-		return nil, fmt.Errorf("Error opening RabbitMQ channel: %w", err)
+		return fmt.Errorf("error opening RabbitMQ channel: %w", err)
 	}
 
-	err = pubsub.DeclareExchange(ch, pubsub.ExchangeBot, "topic")
-	if err != nil {
-		con.Close()
-		ch.Close()
-		return nil, fmt.Errorf("Error declaring bot exchange: %w", err)
+	a.rabbitConn = con
+	a.rabbitChan = ch
+
+	if err := pubsub.DeclareExchange(a.rabbitChan, pubsub.ExchangeBot, "topic"); err != nil {
+		a.rabbitChan.Close()
+		a.rabbitConn.Close()
+		return fmt.Errorf("error declaring bot exchange: %w", err)
 	}
 
-	err = pubsub.SubscribeJSON(con, pubsub.ExchangeBot, pubsub.QueueListenerOAuth, pubsub.KeyTokenRefreshed, pubsub.SimpleQueueTypeDurable, oauthHandler)
-	if err != nil {
-		con.Close()
-		ch.Close()
-		return nil, fmt.Errorf("Error subscribing to RabbitMQ: %w", err)
+	if err := pubsub.SubscribeJSON(a.rabbitConn, pubsub.ExchangeBot, pubsub.QueueListenerOAuth, pubsub.KeyTokenRefreshed, pubsub.SimpleQueueTypeDurable, a.getOAuth); err != nil {
+		a.rabbitChan.Close()
+		a.rabbitConn.Close()
+		return fmt.Errorf("error subscribing to RabbitMQ: %w", err)
 	}
-	return ch, nil
+	
+	return nil
 }

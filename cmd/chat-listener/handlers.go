@@ -6,7 +6,6 @@ import (
 
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func (a *App) getOAuth(msg models.OAuthToken) pubsub.AckType {
@@ -37,41 +36,45 @@ func (a *App) getOAuth(msg models.OAuthToken) pubsub.AckType {
 	return pubsub.AckTypeAck
 }
 
-func BuildCommandRouter(ch *amqp.Channel) func(msg string, user string, m models.OverlayMessage) {
+func (a *App) RouteCommand(msg string, user string, m models.OverlayMessage) {
+	log.Printf("Received message from %s: %s", user, msg)
+	parts := strings.SplitN(msg, " ", 2)
+	command := strings.ToLower(parts[0])
 
-	return func(msg string, user string, m models.OverlayMessage) {
-		log.Printf("Received message from %s: %s", user, msg)
-		parts := strings.SplitN(msg, " ", 2)
-		command := strings.ToLower(parts[0])
+	args := ""
+	if len(parts) > 1 {
+		args = parts[1]
+	}
+	switch command {
+	case "!gc", "!gamechops":
+		err := pubsub.PublishJSON(a.rabbitChan, pubsub.ExchangeBot, pubsub.KeyCmdSong, models.Command{
+			User: user,
+			Name: "gc",
+			Args: args,
+		})
+		if err != nil {
+			log.Printf("Error publishing GC command: %v", err)
+		}
+	case "!quote":
+		err := pubsub.PublishJSON(a.rabbitChan, pubsub.ExchangeBot, pubsub.KeyCmdQuote, models.Command{
+			User: user,
+			Name: "quote",
+			Args: args,
+		})
+		if err != nil {
+			log.Printf("Error publishing quote command: %v", err)
+		}
+	default:
+		err := pubsub.PublishJSON(a.rabbitChan, pubsub.ExchangeBot, pubsub.KeyChatOverlay, m)
+		if err != nil {
+			log.Printf("Error publishing chat message: %v", err)
+		}
+	}
+}
 
-		args := ""
-		if len(parts) > 1 {
-			args = parts[1]
-		}
-		switch command {
-		case "!gc", "!gamechops":
-			err := pubsub.PublishJSON(ch, pubsub.ExchangeBot, pubsub.KeyCmdSong, models.Command{
-				User: user,
-				Name: "gc",
-				Args: args,
-			})
-			if err != nil {
-				log.Printf("Error publishing GC command: %v", err)
-			}
-		case "!quote":
-			err := pubsub.PublishJSON(ch, pubsub.ExchangeBot, pubsub.KeyCmdQuote, models.Command{
-				User: user,
-				Name: "quote",
-				Args: args,
-			})
-			if err != nil {
-				log.Printf("Error publishing quote command: %v", err)
-			}
-		default:
-			err := pubsub.PublishJSON(ch, pubsub.ExchangeBot, pubsub.KeyChatOverlay, m)
-			if err != nil {
-				log.Printf("Error publishing chat message: %v", err)
-			}
-		}
+func (a *App) HandleRevocation(revocation SubscriptionRevocation) {
+	err := pubsub.PublishJSON(a.rabbitChan, pubsub.ExchangeBot, pubsub.KeyTokenRefreshReq, revocation)
+	if err != nil {
+		log.Printf("Error publishing revocation: %v", err)
 	}
 }
