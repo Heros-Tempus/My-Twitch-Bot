@@ -10,12 +10,14 @@ import (
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
 )
 
-func loadOAuth(dbQueries *database.Queries, botID string) models.OAuthToken {
-	auth, err := dbQueries.GetAuth(context.Background(), botID)
+func (a *App) loadOAuth(botID string) {
+	auth, err := a.db.GetAuth(context.Background(), botID)
 	if err != nil {
 		log.Printf("Auth not found or error reading from DB: %v", err)
-		return models.OAuthToken{}
+		a.loadEnvOAuth(botID)
+		return
 	}
+	
 	oauth, err := refreshOath(models.OAuthToken{
 		BotAccountID: auth.TwitchBotAccountID,
 		OwnerID:      auth.TwitchOwnerID,
@@ -25,14 +27,16 @@ func loadOAuth(dbQueries *database.Queries, botID string) models.OAuthToken {
 		ClientSecret: auth.TwitchClientSecret,
 		ExpiresAt:    auth.OauthExpiresAt.Time,
 	})
+	
 	if err != nil {
 		log.Printf("Failed to refresh OAuth token using DB data: %v", err)
-		return models.OAuthToken{}
+		a.loadEnvOAuth(botID)
+		return
 	}
-	return oauth
+	a.oauth = oauth
 }
 
-func (a *App) loadEnvOAuth(botID string) models.OAuthToken {
+func (a *App) loadEnvOAuth(botID string) {
 	log.Println("Falling back to .env authentication data...")
 	envOauth := models.OAuthToken{
 		BotAccountID: botID,
@@ -47,7 +51,7 @@ func (a *App) loadEnvOAuth(botID string) models.OAuthToken {
 	if err != nil {
 		log.Printf("Critical: Failed to refresh OAuth token from .env: %v", err)
 		a.publishOAuth(err)
-		return models.OAuthToken{}
+		return
 	}
 
 	_, err = a.db.SetAuth(context.Background(), database.SetAuthParams{
@@ -58,17 +62,15 @@ func (a *App) loadEnvOAuth(botID string) models.OAuthToken {
 		OauthKey:           oauth.Token,
 		OauthRefreshKey:    oauth.Refresh,
 	})
+	
 	if err != nil {
 		log.Printf("Warning: Successfully authenticated via .env, but failed to save to DB: %v", err)
 	} else {
 		log.Println("Successfully saved .env authentication data to DB.")
 	}
-	return oauth
+	a.oauth = oauth
 }
 
-func (a *App) publishOAuth(err error) {
-	notifyRabbit(a.rabbitChan, a.oauth, err)
-}
 
 func (a *App) refreshOAuth() {
 	newOauth, err := refreshOath(a.oauth)

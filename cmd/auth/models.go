@@ -1,5 +1,4 @@
 package main
-
 import (
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/database"
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/models"
@@ -8,18 +7,16 @@ import (
 
 type App struct {
 	db          *database.Queries
-	rabbitCon   *amqp.Connection
-	rabbitChan  *amqp.Channel
-	refreshChan <-chan struct{}
+	rabbitConn  *amqp.Connection
+	rabbitChan      *amqp.Channel
+	refreshChan chan struct{}
 	oauth       models.OAuthToken
 }
 
-func newApp(db *database.Queries, rabbitCon *amqp.Connection, rabbitChan *amqp.Channel, refreshChan <-chan struct{}) *App {
+func newApp(db *database.Queries) *App {
 	return &App{
 		db:          db,
-		rabbitCon:   rabbitCon,
-		rabbitChan:  rabbitChan,
-		refreshChan: refreshChan,
+		refreshChan: make(chan struct{}, 1),
 	}
 }
 
