@@ -58,3 +58,7 @@ type ChatFragment struct {
 	EmoteID  string `json:"emote_id,omitempty"`
 	ImageURL string `json:"image_url,omitempty"`
 }
+
+	type TrackDisablePayload struct {
+		VideoID string `json:"video_id"`
+	}

@@ -65,3 +65,11 @@ func (a *App) sendReadySignal() {
 		log.Printf("Failed to send player_ready: %v", err)
 	}
 }
+
+func (a *App) sendToChat(message string) {
+	err := pubsub.PublishJSON(a.rabbitChan, pubsub.ExchangeBot, pubsub.KeyChatMessage, models.ChatMessage{Message: message, User: "bot"})
+	if err != nil {
+		log.Printf("Failed to send message to chat: %v", err)
+	}
+	log.Println(message)
+}

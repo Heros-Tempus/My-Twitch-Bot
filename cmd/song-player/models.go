@@ -9,14 +9,15 @@ import (
 )
 
 type App struct {
-	rabbitConn    *amqp.Connection
-	rabbitChan    *amqp.Channel
-	obs           *goobs.Client
-	browserSource string
-	textSource    string
-	sceneName     string
-	textItemId    int
-	desktopIP     string 
-	mu            sync.Mutex
-	timer         *time.Timer
+	rabbitConn         *amqp.Connection
+	rabbitChan         *amqp.Channel
+	obs                *goobs.Client
+	browserSource      string
+	textSource         string
+	sceneName          string
+	textItemId         int
+	desktopIP          string
+	mu                 sync.Mutex
+	timer              *time.Timer
+	currentAttribution string
 }

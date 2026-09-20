@@ -42,10 +42,15 @@ func (a *App) setupRabbitMQ(rabbitConString string) error {
 		return fmt.Errorf("error subscribing to player status requests: %w", err)
 	}
 	
-	if err := pubsub.SubscribeJSON(a.rabbitConn, pubsub.ExchangeBot, pubsub.QueueSongManagerSkip, pubsub.KeySongReady, pubsub.SimpleQueueTypeDurable, a.handlePlayerReady); err != nil {
+	if err := pubsub.SubscribeJSON(a.rabbitConn, pubsub.ExchangeBot, pubsub.QueueSongReady, pubsub.KeySongReady, pubsub.SimpleQueueTypeDurable, a.handlePlayerReady); err != nil {
 		a.rabbitChan.Close()
 		a.rabbitConn.Close()
 		return fmt.Errorf("error subscribing to player ready signals: %w", err)
+	}
+	if err := pubsub.SubscribeJSON(a.rabbitConn, pubsub.ExchangeBot, pubsub.QueueSongDisable, pubsub.KeySongDisable, pubsub.SimpleQueueTypeDurable, a.handleDisableTrack); err != nil {
+		a.rabbitChan.Close()
+		a.rabbitConn.Close()
+		return fmt.Errorf("error subscribing to track disable signals: %w", err)
 	}
 
 	return nil

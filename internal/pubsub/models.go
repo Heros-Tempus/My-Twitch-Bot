@@ -30,10 +30,12 @@ const (
 	QueueSongManagerCommands QueueName = "q_song_manager_commands"
 	QueueSongManagerSkip     QueueName = "q_song_manager_skip"
 	QueueSongManagerStatus   QueueName = "q_song_manager_status"
+	QueueSongReady           QueueName = "q_song_ready"
 
 	// Song Player
 	QueueSongPlayerSong QueueName = "q_song_player_song"
 	QueueSongStatusResp QueueName = "q_song_status_response"
+	QueueSongDisable    QueueName = "q_song_disable"
 )
 
 // --- Routing Keys ---
@@ -61,6 +63,7 @@ const (
 	// Song Manager Events
 	KeySongReady     RoutingKey = "song.manager.ready"
 	KeySongStatusReq RoutingKey = "song.manager.status_req"
+	KeySongDisable   RoutingKey = "song.manager.disable"
 )
 
 type SimpleQueueType string

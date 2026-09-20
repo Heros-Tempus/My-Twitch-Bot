@@ -27,7 +27,6 @@ func main() {
 	}
 	log.Println("Connected to OBS WebSocket")
 
-	startFileServer()
 
 	app := &App{
 		obs:           obsClient,
@@ -36,6 +35,7 @@ func main() {
 		textSource:    os.Getenv("OBS_TEXT_SOURCE_NAME"),
 		desktopIP:     desktopIP,
 	}
+	app.startFileServer()
 
 	idResp, err := app.obs.SceneItems.GetSceneItemId(&sceneitems.GetSceneItemIdParams{
 		SceneName:  &app.sceneName,

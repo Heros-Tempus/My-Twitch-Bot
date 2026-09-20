@@ -35,7 +35,7 @@ func (a *App) setObsIdle() {
 	a.triggerAudioDuck("Duck In", "Duck Out")
 }
 
-func (a *App) setObsActive(url, attribution string) {
+func (a *App) loadObsVideo(url string) {
 	if a.desktopIP != "" {
 		url = buildEmbededPlayerURL(a.desktopIP, url)
 	} else {
@@ -48,14 +48,17 @@ func (a *App) setObsActive(url, attribution string) {
 	if err != nil {
 		log.Printf("Failed to set OBS browser URL: %v", err)
 	}
+}
 
-	_, err = a.obs.Inputs.SetInputSettings(&inputs.SetInputSettingsParams{
+func (a *App) showObsAttribution(attribution string) {
+	_, err := a.obs.Inputs.SetInputSettings(&inputs.SetInputSettingsParams{
 		InputName:     &a.textSource,
 		InputSettings: map[string]interface{}{"text": attribution},
 	})
 	if err != nil {
 		log.Printf("Failed to set OBS attribution text: %v", err)
 	}
+
 	visible := true
 	_, err = a.obs.SceneItems.SetSceneItemEnabled(&sceneitems.SetSceneItemEnabledParams{
 		SceneName:        &a.sceneName,
@@ -65,6 +68,7 @@ func (a *App) setObsActive(url, attribution string) {
 	if err != nil {
 		log.Printf("Failed to make text source visible: %v", err)
 	}
+	a.sendToChat("Now Playing: " + attribution)
 
 	a.triggerAudioDuck("Duck Out", "Duck In")
 

@@ -11,12 +11,14 @@ import (
 //go:embed yt.html
 var ytHTML []byte
 
-func startFileServer() {
+func (a *App) startFileServer() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/yt.html", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write(ytHTML)
 	})
+	mux.HandleFunc("/api/track/disable", a.handleDisableTrack)
+	mux.HandleFunc("/api/track/playing", a.handleTrackPlaying)
 	go func() {
 		log.Println("serving yt.html on :8000")
 		log.Fatal(http.ListenAndServe("0.0.0.0:8000", mux))

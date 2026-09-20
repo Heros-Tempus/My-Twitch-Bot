@@ -144,3 +144,17 @@ func (a *App) handleQueueCmd(ctx context.Context, params database.QueueRandomTra
 	}
 	return pubsub.AckTypeAck
 }
+
+func (a *App) handleDisableTrack(msg models.TrackDisablePayload) pubsub.AckType {
+	ctx := context.Background()
+	log.Printf("Received disable signal from player for track %s", msg.VideoID)
+	
+	err := a.service.queries.DisableTrack(ctx, msg.VideoID)
+	if err != nil {
+		log.Printf("Failed to disable track in DB: %v", err)
+	} else {
+		log.Printf("Successfully disabled track %s in database.", msg.VideoID)
+	}
+	
+	return pubsub.AckTypeAck
+}
