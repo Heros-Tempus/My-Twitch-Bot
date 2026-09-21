@@ -1,8 +1,8 @@
 package pubsub
 
-type ExchangeName = string
-type QueueName = string
-type RoutingKey = string
+type ExchangeName string
+type QueueName string
+type RoutingKey string
 
 const ExchangeBot ExchangeName = "bot_topic_exchange"
 
