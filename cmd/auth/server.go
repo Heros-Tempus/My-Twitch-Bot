@@ -11,7 +11,11 @@ import (
 
 func (a *App) runManualAuthFlow(botID, clientID, clientSecret string) error {
 	redirectURI := "http://localhost:8081/callback"
-	scopes := "chat:read chat:edit"
+	scopes := "user:bot user:read:chat user:write:chat"
+
+	// scopes to be added for microservices that have yet to be made
+	// moderator:manage:announcements
+	// moderator:manage:shoutouts
 
 	authURL := fmt.Sprintf("https://id.twitch.tv/oauth2/authorize?client_id=%s&redirect_uri=%s&response_type=code&scope=%s",
 		clientID, redirectURI, scopes)
