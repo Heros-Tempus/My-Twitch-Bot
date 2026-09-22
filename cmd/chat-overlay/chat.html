@@ -139,24 +139,42 @@
         const params = new URLSearchParams(window.location.search);
         const FLOW_BOTTOM_UP = params.get('flow_bottom_up') !== 'false';
 
-        function readCssValue(name, fallback) {
+        function readQueryValue(name, fallback) {
             const raw = params.get(name);
             if (raw === null || raw.trim() === '') {
                 return fallback;
             }
+            return raw.trim();
+        }
+
+        function readNumberParam(name, fallback, minimum) {
+            const raw = readQueryValue(name, null);
+            if (raw === null) {
+                return fallback;
+            }
+
+            const value = Number(raw);
+            return Number.isFinite(value) && value >= minimum ? value : fallback;
+        }
+
+        function readCssValue(name, fallback) {
+            const raw = readQueryValue(name, null);
+            if (raw === null) {
+                return fallback;
+            }
 
             if (name === 'text_size') {
-                const value = raw.trim();
+                const value = raw;
                 if (/^\d+(\.\d+)?px$/i.test(value)) return value;
                 if (/^\d+(\.\d+)?$/i.test(value)) return `${value}px`;
                 return fallback;
             }
 
             if (name === 'text_weight') {
-                return /^(normal|bold|bolder|lighter|[1-9]?[0-9]0)$/.test(raw.trim()) ? raw.trim() : fallback;
+                return /^(normal|bold|bolder|lighter|[1-9]?[0-9]0)$/.test(raw) ? raw : fallback;
             }
 
-            return raw.trim();
+            return raw;
         }
 
         function applyCssOverrides() {
@@ -173,17 +191,8 @@
             root.style.setProperty('--text-scale', String(textScale));
         }
         
-        const MESSAGE_TIMEOUT_SEC = (() => {
-            const raw = params.get("message_timeout_sec");
-            const value = Number(raw);
-            return Number.isFinite(value) && value >= 0 ? value : 15;
-        })();
-
-        const MAX_MESSAGES = (() => {
-            const raw = params.get("max_messages");
-            const value = Number(raw);
-            return Number.isFinite(value) && value > 0 ? value : 50;
-        })();
+        const MESSAGE_TIMEOUT_SEC = readNumberParam("message_timeout_sec", 15, 0);
+        const MAX_MESSAGES = readNumberParam("max_messages", 50, 1);
 
         const container = document.getElementById('chat-container');
 
