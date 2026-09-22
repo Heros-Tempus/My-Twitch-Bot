@@ -33,3 +33,5 @@ go.work.sum
 
 /*_dump.sql
 /*.csv
+
+__pycache__/
