@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
+
+	"github.com/Heros-Tempus/My-Twitch-Bot/internal/database"
 )
 
 func (a *App) runManualAuthFlow(botID, clientID, clientSecret string) error {
@@ -17,8 +20,15 @@ func (a *App) runManualAuthFlow(botID, clientID, clientSecret string) error {
 	// moderator:manage:announcements
 	// moderator:manage:shoutouts
 
-	authURL := fmt.Sprintf("https://id.twitch.tv/oauth2/authorize?client_id=%s&redirect_uri=%s&response_type=code&scope=%s",
-		clientID, redirectURI, scopes)
+	authEndpoint, _ := url.Parse("https://id.twitch.tv/oauth2/authorize")
+	q := authEndpoint.Query()
+	q.Set("client_id", clientID)
+	q.Set("redirect_uri", redirectURI)
+	q.Set("response_type", "code")
+	q.Set("scope", scopes)
+	authEndpoint.RawQuery = q.Encode()
+
+	authURL := authEndpoint.String()
 
 	log.Println("\n==================================================================")
 	log.Println("ACTION REQUIRED: OAUTH TOKEN INVALID OR MISSING")
@@ -27,7 +37,7 @@ func (a *App) runManualAuthFlow(botID, clientID, clientSecret string) error {
 	log.Println("Waiting 3 minutes for authorization...")
 	log.Println("==================================================================")
 	a.publishOAuth(fmt.Errorf("manual auth required"))
-	
+
 	codeChan := make(chan string)
 	errChan := make(chan error)
 
@@ -69,6 +79,17 @@ func (a *App) runManualAuthFlow(botID, clientID, clientSecret string) error {
 		oauth.ClientSecret = clientSecret
 
 		a.oauth = oauth
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := a.db.RefreshOauth(ctx, database.RefreshOauthParams{
+			OauthKey:           a.oauth.Token,
+			OauthRefreshKey:    a.oauth.Refresh,
+			TwitchBotAccountID: a.oauth.BotAccountID,
+		}); err != nil {
+			log.Printf("Error updating database with new OAuth token: %v", err)
+		} else {
+			log.Println("Successfully persisted refreshed OAuth token to PostgreSQL.")
+		}
 		log.Println("Successfully acquired new OAuth tokens via Authorization Code Grant.")
 
 	case err := <-errChan:
