@@ -110,11 +110,21 @@
 
     <script>
         const WS_URL = "ws://" + window.location.host + "/ws";
+
+        const params = new URLSearchParams(window.location.search);
+        const FLOW_BOTTOM_UP = params.get("flow_bottom_up") !== "false";
         
-        const FLOW_BOTTOM_UP = true; 
-        
-        const MESSAGE_TIMEOUT_SEC = 15;
-        const MAX_MESSAGES = 50;
+        const MESSAGE_TIMEOUT_SEC = (() => {
+            const raw = params.get("message_timeout_sec");
+            const value = Number(raw);
+            return Number.isFinite(value) && value >= 0 ? value : 15;
+        })();
+
+        const MAX_MESSAGES = (() => {
+            const raw = params.get("max_messages");
+            const value = Number(raw);
+            return Number.isFinite(value) && value > 0 ? value : 50;
+        })();
 
         const container = document.getElementById('chat-container');
 
