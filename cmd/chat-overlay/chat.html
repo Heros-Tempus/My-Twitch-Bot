@@ -4,12 +4,22 @@
     <meta charset="UTF-8">
     <title>Twitch Chat Overlay</title>
     <style>
+        :root {
+            --text-color: #ffffff;
+            --text-size: 24px;
+            --text-font: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --text-weight: 700;
+            --chat-bg: rgba(0, 0, 0, 0);
+            --chat-fade: rgba(0, 0, 0, 0.35);
+            --text-scale: 1;
+        }
+
         body {
             background-color: transparent;
-            color: #ffffff;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            font-size: 24px;
-            font-weight: 700;
+            color: var(--text-color);
+            font-family: var(--text-font);
+            font-size: var(--text-size);
+            font-weight: var(--text-weight);
             
             text-shadow: 
                 2px 2px 0 #000, 
@@ -33,6 +43,12 @@
             box-sizing: border-box;
             gap: 12px;
             align-items: flex-start;
+            background: var(--chat-bg);
+            transition: background 0.25s ease;
+        }
+
+        #chat-container.has-messages {
+            background: var(--chat-fade);
         }
 
         .message-row {
@@ -53,7 +69,7 @@
         }
 
         .badge {
-            height: 24px;
+            height: calc(24px * var(--text-scale));
             vertical-align: middle;
             margin-right: 6px;
             margin-bottom: 4px;
@@ -69,7 +85,7 @@
         }
 
         .emote {
-            height: 32px; 
+            height: calc(32px * var(--text-scale)); 
             vertical-align: middle;
             margin: 0 2px;
         }
@@ -111,8 +127,51 @@
     <script>
         const WS_URL = "ws://" + window.location.host + "/ws";
 
+        const DEFAULTS = {
+            text_color: '#ffffff',
+            text_size: '24px',
+            text_font: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+            text_weight: '700',
+            chat_bg: 'rgba(0, 0, 0, 0)',
+            chat_fade: 'rgba(0, 0, 0, 0.35)'
+        };
+
         const params = new URLSearchParams(window.location.search);
-        const FLOW_BOTTOM_UP = params.get("flow_bottom_up") !== "false";
+        const FLOW_BOTTOM_UP = params.get('flow_bottom_up') !== 'false';
+
+        function readCssValue(name, fallback) {
+            const raw = params.get(name);
+            if (raw === null || raw.trim() === '') {
+                return fallback;
+            }
+
+            if (name === 'text_size') {
+                const value = raw.trim();
+                if (/^\d+(\.\d+)?px$/i.test(value)) return value;
+                if (/^\d+(\.\d+)?$/i.test(value)) return `${value}px`;
+                return fallback;
+            }
+
+            if (name === 'text_weight') {
+                return /^(normal|bold|bolder|lighter|[1-9]?[0-9]0)$/.test(raw.trim()) ? raw.trim() : fallback;
+            }
+
+            return raw.trim();
+        }
+
+        function applyCssOverrides() {
+            const root = document.documentElement;
+            const textSize = readCssValue('text_size', DEFAULTS.text_size);
+            const textScale = Number.parseFloat(textSize) / 24 || 1;
+
+            root.style.setProperty('--text-color', readCssValue('text_color', DEFAULTS.text_color));
+            root.style.setProperty('--text-size', textSize);
+            root.style.setProperty('--text-font', readCssValue('text_font', DEFAULTS.text_font));
+            root.style.setProperty('--text-weight', readCssValue('text_weight', DEFAULTS.text_weight));
+            root.style.setProperty('--chat-bg', readCssValue('chat_bg', DEFAULTS.chat_bg));
+            root.style.setProperty('--chat-fade', readCssValue('chat_fade', DEFAULTS.chat_fade));
+            root.style.setProperty('--text-scale', String(textScale));
+        }
         
         const MESSAGE_TIMEOUT_SEC = (() => {
             const raw = params.get("message_timeout_sec");
@@ -127,6 +186,13 @@
         })();
 
         const container = document.getElementById('chat-container');
+
+        applyCssOverrides();
+
+        function updateChatBackground() {
+            const hasMessages = container.children.length > 0;
+            container.classList.toggle('has-messages', hasMessages);
+        }
 
         if (FLOW_BOTTOM_UP) {
             container.style.flexDirection = 'column';
@@ -214,13 +280,14 @@
             } else {
                 container.prepend(row);
             }
-
+            updateChatBackground();
             setTimeout(() => {
                 row.classList.add('fade-out');
                 
                 setTimeout(() => {
                     if (row.parentNode === container) {
                         container.removeChild(row);
+                        updateChatBackground();
                     }
                 }, 500); 
                 
