@@ -12,6 +12,7 @@ type QuoteAction int
 const (
 	ActionUnknown QuoteAction = iota
 	ActionAdd
+	ActionHelp
 	ActionGetMostRecent
 	ActionGetByID
 	ActionGetRandom

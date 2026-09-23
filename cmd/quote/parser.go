@@ -11,7 +11,10 @@ import (
 func ParseQuoteCommand(args string) (ParsedQuoteCommand, error) {
 	args = strings.TrimSpace(args)
 
-	if strings.HasPrefix(args, "--add") {
+	if args == "--help" || args == "-h" || strings.HasPrefix(args, "--help ") {
+		return ParsedQuoteCommand{Action: ActionHelp}, nil
+	}
+	if args == "--add" || args == "-a" || strings.HasPrefix(args, "--add ") {
 		addStr := strings.TrimSpace(strings.TrimPrefix(args, "--add"))
 		return parseAddCommand(addStr)
 	}

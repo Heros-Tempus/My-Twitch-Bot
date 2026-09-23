@@ -47,6 +47,14 @@ func (app *App) HandleCommandMessage(cmd models.Command) pubsub.AckType {
 		return pubsub.AckTypeNackDiscard
 	}
 
+	if parsedCmd.Action == ActionHelp {
+		app.SendToChat("Usage: !quote <quote_id> or !quote --add <text> or !quote [search text]")
+		app.SendToChat("Read: '!quote' (random), '!quote 0' (most recent), or '!quote <id>' (specific).")
+		app.SendToChat("Add: '!quote --add \"Text\" --who @user --game name' (Game is auto-fetched if omitted).")
+		app.SendToChat("Search: '!quote [search text] [--who @user] [--game name] [--date YYYY or YYYY to YYYY] [--limit X]'.")
+		return pubsub.AckTypeAck
+	}
+
 	if parsedCmd.Action == ActionAdd {
 		return app.handleAddQuote(ctx, cmd, parsedCmd)
 	}
