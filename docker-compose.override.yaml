@@ -17,3 +17,7 @@ services:
   song-player:
     ports:
       - "8000:8000"
+  
+  spinner:
+    ports:
+      - "8082:8082"

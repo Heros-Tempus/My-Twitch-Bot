@@ -138,6 +138,22 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+  
+  spinner:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: spinner
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - "${WHEEL_FOLDER_HOST_PATH}:/app/data"
+    environment:
+      - RABBIT_CON_STRING=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
 volumes:
   postgres-data:

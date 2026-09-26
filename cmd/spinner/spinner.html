@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { margin: 0; padding: 0; background: transparent; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }
+        #wheel-container { position: relative; width: 500px; height: 500px; }
+        #pointer { position: absolute; top: 50%; right: -20px; transform: translateY(-50%); width: 0; height: 0; border-top: 20px solid transparent; border-bottom: 20px solid transparent; border-right: 40px solid #e74c3c; z-index: 10; filter: drop-shadow(-2px 2px 2px rgba(0,0,0,0.5)); }
+        #wheel { width: 100%; height: 100%; border-radius: 50%; transition: transform 5s cubic-bezier(0.25, 0.1, 0.25, 1); box-shadow: 0 0 15px rgba(0,0,0,0.5); border: 4px solid #333; background-color: #fff; }
+    </style>
+</head>
+<body>
+    <div id="wheel-container">
+        <div id="pointer"></div>
+        <canvas id="wheel" width="500" height="500"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('wheel');
+        const ctx = canvas.getContext('2d');
+        const colors = ['#3498db', '#9b59b6', '#f1c40f', '#e67e22', '#1abc9c', '#e74c3c', '#34495e', '#2ecc71'];
+
+        const params = new URLSearchParams(window.location.search);
+        const items = params.get('items') ? params.get('items').split(',') : [];
+        const winnerIndex = parseInt(params.get('index') || '0', 10);
+        let winnerName = items[winnerIndex];
+
+        function drawWheel() {
+            const sliceAngle = (2 * Math.PI) / items.length;
+            const radius = canvas.width / 2;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            for (let i = 0; i < items.length; i++) {
+                const startAngle = i * sliceAngle;
+                const endAngle = startAngle + sliceAngle;
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.closePath();
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fill(); ctx.stroke();
+
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(startAngle + sliceAngle / 2);
+                ctx.textAlign = "right"; ctx.fillStyle = "#fff"; ctx.font = "bold 20px sans-serif";
+                ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 4;
+                ctx.fillText(items[i], radius - 20, 5); 
+                ctx.restore();
+            }
+        }
+
+        if (items.length > 0) {
+            drawWheel();
+            
+            setTimeout(() => {
+                const sliceAngle = 360 / items.length;
+                const winningSliceCenter = (winnerIndex * sliceAngle) + (sliceAngle / 2);
+                const spinDegrees = (360 * 5) + (360 - winningSliceCenter);
+                canvas.style.transform = `rotate(${spinDegrees}deg)`;
+            }, 50);
+        }
+
+        canvas.addEventListener('transitionend', () => {
+            fetch('/api/spinner/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ winner: winnerName })
+            }).catch(err => console.error("Failed to report winner:", err));
+        });
+    </script>
+</body>
+</html>
