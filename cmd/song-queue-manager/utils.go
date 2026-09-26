@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -20,4 +21,17 @@ func buildAttribution(t Track) string {
 	}
 
 	return strings.Join(parts, "\n")
+}
+
+func isMod(user string) bool {
+	mods := strings.Split(os.Getenv("MODERATORS"), ",")
+	for _, mod := range mods {
+		if strings.TrimSpace(mod) == user {
+			return true
+		}
+	}
+	if user == os.Getenv("BROADCASTER") {
+		return true
+	}
+	return false
 }

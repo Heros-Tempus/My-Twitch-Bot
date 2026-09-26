@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -48,7 +47,7 @@ func (a *App) handlePlayerReady(msg models.EmptySignal) pubsub.AckType {
 }
 
 func (a *App) handleChatCommand(msg models.Command) pubsub.AckType {
-	isMod := strings.Contains(os.Getenv("MODERATORS"), msg.User) || msg.User == os.Getenv("BROADCASTER")
+	isMod := isMod(msg.User)
 	parsed := ParseCommand(models.Command{User: msg.User, Name: msg.Name, Args: msg.Args})
 	ctx := context.Background()
 
@@ -148,13 +147,13 @@ func (a *App) handleQueueCmd(ctx context.Context, params database.QueueRandomTra
 func (a *App) handleDisableTrack(msg models.TrackDisablePayload) pubsub.AckType {
 	ctx := context.Background()
 	log.Printf("Received disable signal from player for track %s", msg.VideoID)
-	
+
 	err := a.service.queries.DisableTrack(ctx, msg.VideoID)
 	if err != nil {
 		log.Printf("Failed to disable track in DB: %v", err)
 	} else {
 		log.Printf("Successfully disabled track %s in database.", msg.VideoID)
 	}
-	
+
 	return pubsub.AckTypeAck
 }

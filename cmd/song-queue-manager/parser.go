@@ -12,26 +12,26 @@ import (
 )
 
 func ParseCommand(in models.Command) ParsedCommand {
-	parts := strings.Split(in.Args, "--")
+	parts := strings.Fields(in.Args)
 
 	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
+		if !strings.HasPrefix(part, "-") {
 			continue
 		}
 
-		key := strings.ToLower(strings.SplitN(part, " ", 2)[0])
+		cleanFlag := strings.TrimLeft(part, "-")
+		key := strings.ToLower(cleanFlag)
 
 		switch key {
-		case "help":
+		case "help", "h":
 			return ParsedCommand{Action: ActionHelp}
-		case "skip":
+		case "skip", "s":
 			return ParsedCommand{Action: ActionSkip}
-		case "clear":
+		case "clear", "c":
 			return ParsedCommand{Action: ActionClear}
-		case "shuffle":
+		case "shuffle", "sh":
 			return ParsedCommand{Action: ActionShuffle}
-		case "peek":
+		case "peek", "p":
 			return ParsedCommand{Action: ActionPeek}
 		}
 	}
