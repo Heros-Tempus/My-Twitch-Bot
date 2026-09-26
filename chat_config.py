@@ -42,7 +42,7 @@ class URLGeneratorApp:
         self.root.title("URL Generator")
         self.root.geometry("700x550")
         self.env = load_dotenv()
-        self.env.update({k: v for k, v in os.environ.items() if k in {"OBS_IP"}})
+        self.env.update({k: v for k, v in os.environ.items() if k in {"DESKTOP_IP"}})
 
         vcmd_int = (self.root.register(self.validate_int), '%P')
         vcmd_alpha = (self.root.register(self.validate_alpha), '%P')
@@ -50,15 +50,15 @@ class URLGeneratorApp:
         base_frame = ttk.Frame(self.root, padding="10")
         base_frame.pack(fill=tk.X)
         ttk.Label(base_frame, text="Base URL:").pack(side=tk.LEFT)
-        obs_ip = self.env.get("OBS_IP") or os.getenv("OBS_IP") or "localhost"
-        self.base_url_var = tk.StringVar(value=f"http://{obs_ip}:8080/chat.html")
+        desktop_ip = self.env.get("DESKTOP_IP") or "localhost"
+        self.base_url_var = tk.StringVar(value=f"http://{desktop_ip}:8080/chat.html")
         ttk.Entry(base_frame, textvariable=self.base_url_var).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
 
         self.main_frame = ttk.LabelFrame(self.root, text="Query Parameters (Optional)", padding="10")
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
         self.params = {
-            "flow_bottom_up": {"type": "bool", "var": tk.StringVar()},
+            "flow_bottom_up": {"type": "bool", "var": tk.StringVar(value="false")},
             "message_timeout_sec": {"type": "int", "var": tk.StringVar()},
             "max_messages": {"type": "int", "var": tk.StringVar()},
             "text_color": {"type": "hex", "var": tk.StringVar()},
@@ -78,7 +78,7 @@ class URLGeneratorApp:
             if p_type == "bool":
                 widget = ttk.Checkbutton(
                     self.main_frame, text="Enable", 
-                    variable=config["var"], onvalue="true", offvalue=""
+                    variable=config["var"], onvalue="true", offvalue="false"
                 )
                 widget.grid(row=row, column=1, sticky=tk.W, padx=5, pady=5)
 
