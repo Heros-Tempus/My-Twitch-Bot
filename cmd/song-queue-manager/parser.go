@@ -39,13 +39,15 @@ func ParseCommand(in models.Command) ParsedCommand {
 	params := database.QueueRandomTracksParams{}
 	var limit int32 = 1
 
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
+	segments := strings.Split(in.Args, "--")
+
+	for _, segment := range segments {
+		segment = strings.TrimSpace(segment)
+		if segment == "" {
 			continue
 		}
 
-		keyVal := strings.SplitN(part, " ", 2)
+		keyVal := strings.SplitN(segment, " ", 2)
 		key := strings.ToLower(keyVal[0])
 		var val string
 		if len(keyVal) == 2 {
@@ -69,9 +71,11 @@ func ParseCommand(in models.Command) ParsedCommand {
 			}
 		}
 	}
+
 	log.Printf("User: %s", in.User)
 	log.Printf("Broadcaster: %s", os.Getenv("BROADCASTER"))
 	log.Printf("User is broadcaster: %t", in.User == os.Getenv("BROADCASTER"))
+
 	if limit > 10 && in.User != os.Getenv("BROADCASTER") {
 		limit = 10
 	}
