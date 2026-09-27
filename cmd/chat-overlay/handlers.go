@@ -12,6 +12,10 @@ import (
 
 func (a *App) handleAuthUpdate(msg models.OAuthToken) pubsub.AckType {
 	log.Println("Received OAuth token. Updating Twitch Badges...")
+	a.ClientsMu.Lock()
+	a.AlertPayload = nil
+	a.ClientsMu.Unlock()
+	
 	if err := fetchTwitchBadges(msg.OwnerID, msg.Token, msg.ClientID, a.Cache); err != nil {
 		log.Printf("Failed to fetch Twitch badges: %v", err)
 	} else {
@@ -43,6 +47,9 @@ func (a *App) handleAuthFailure(msg models.EmptySignal) pubsub.AckType {
 
 	payload, err := json.Marshal(alertMsg)
 	if err == nil {
+		a.ClientsMu.Lock()
+		a.AlertPayload = payload
+		a.ClientsMu.Unlock()
 		a.broadcastMessage(payload)
 	} else {
 		log.Printf("Failed to marshal auth failure alert: %v", err)

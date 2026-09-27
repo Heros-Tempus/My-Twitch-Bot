@@ -49,6 +49,7 @@ type App struct {
 
 	TokenReady chan struct{}
 	TokenOnce  sync.Once
+	AlertPayload []byte
 }
 
 func NewApp() *App {

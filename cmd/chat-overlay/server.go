@@ -35,8 +35,14 @@ func (a *App) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	a.ClientsMu.Lock()
 	a.Clients[c] = cancel
+	currentAlert := a.AlertPayload
 	a.ClientsMu.Unlock()
-
+	
+	if len(currentAlert) > 0 {
+		writeCtx, writeCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		_ = c.Write(writeCtx, websocket.MessageText, currentAlert)
+		writeCancel()
+	}
 	<-ctx.Done()
 
 	a.ClientsMu.Lock()
