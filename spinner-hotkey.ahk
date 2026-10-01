@@ -1,5 +1,7 @@
 envFilePath := ".env"
 spinnerHotkey := ""
+apiSecret := ""
+routerUrl := "http://100.112.36.101:8082" 
 
 IfNotExist, %envFilePath%
 {
@@ -16,7 +18,13 @@ Loop, Read, %envFilePath%
     {
         parts := StrSplit(A_LoopReadLine, "=")
         spinnerHotkey := parts[2]
-        break
+    }
+    
+    ; Grab the secret from the .env file too!
+    if (InStr(A_LoopReadLine, "HOTKEY_API_SECRET=") == 1) 
+    {
+        parts := StrSplit(A_LoopReadLine, "=")
+        apiSecret := parts[2]
     }
 }
 
@@ -33,5 +41,20 @@ else
 return
 
 TriggerSpin:    
-    Run, cmd /k curl -v -X POST http://localhost:8082/api/spin,, Hide
+    ; Native AHK HTTP Request instead of spawning cmd.exe/curl
+    try 
+    {
+        http := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+        http.Open("POST", routerUrl . "/api/spin", false)
+        
+        ; Inject the authorization header using the secret from the .env
+        http.SetRequestHeader("Authorization", "Bearer " . apiSecret)
+        
+        http.Send()
+    }
+    catch e 
+    {
+        ; Optional: If you want to know if the desktop is offline/unreachable
+        MsgBox, 16, Error, Failed to reach hotkey router. Is it running?
+    }
 return
