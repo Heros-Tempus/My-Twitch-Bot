@@ -111,6 +111,7 @@ docker compose up -d
 
 * **Overlay Configurator (`chat_coonfig.py`)**: A Tkinter GUI tool that generates custom URL query parameters for the OBS chat browser source. It allows dynamic configuration of text color, font size, gradients, alpha fades, and chat flow direction (e.g., bottom-up or top-down) without altering the CSS.
 * **Spinner Hotkey (`spinner-hotkey.ahk`)**: An AutoHotkey script that automatically parses the `.env` file for your `SPINNER_HOTKEY` and `HOTKEY_API_SECRET`, allowing you to natively trigger the spinner's HTTP API over the local network using a keyboard shortcut.
+* **Hotkey Listener (`hotkey-listener.ahk`)**: An AutoHotkey v1 script that reads each hotkey-to-endpoint pair from `cmd/hotkey-listener/hotkeys.json`, sends authenticated POST requests to the listener on port `8083`, and reads `DESKTOP_IP` and `HOTKEY_API_SECRET` from `.env`.
 * **Makefile commands (`Makefile`)**: A collection of commands useful for managing database backups and seeding. `make track_dump` and `make quote_dump` create backups of the `track` and `quote` tables, `make track_seed` and `make quote_seed` load the backups into the `track` and `quote` tables, and `make track_audit` finds all the tracks which have been disabled in the `tracks` table and saves them to a csv.
 
 ---

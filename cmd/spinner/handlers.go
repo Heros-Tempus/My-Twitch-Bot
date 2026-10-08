@@ -15,28 +15,23 @@ import (
 	"github.com/Heros-Tempus/My-Twitch-Bot/internal/pubsub"
 )
 
-func (a *App) handleSpinTrigger(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+func (a *App) handleSpinTrigger(msg struct{}) pubsub.AckType {
 	a.mu.Lock()
 	if a.isSpinning {
 		a.mu.Unlock()
 		log.Println("Spin in progress. Ignoring duplicate hotkey.")
-		w.WriteHeader(http.StatusOK)
-		return
+		return pubsub.AckTypeAck
 	}
 	a.isSpinning = true
 	a.mu.Unlock()
 
 	file, err := os.Open(a.dataPath)
 	if err != nil {
-		http.Error(w, "Failed to read wheel items text file", http.StatusInternalServerError)
+		log.Printf("Failed to read wheel items text file: %v", err)
 		a.mu.Lock()
 		a.isSpinning = false
 		a.mu.Unlock()
-		return
+		return pubsub.AckTypeNackDiscard
 	}
 	defer file.Close()
 
@@ -50,11 +45,11 @@ func (a *App) handleSpinTrigger(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := scanner.Err(); err != nil || len(items) == 0 {
-		http.Error(w, "Failed to parse items or file is empty", http.StatusInternalServerError)
+		log.Printf("Failed to parse items or file is empty: %v", err)
 		a.mu.Lock()
 		a.isSpinning = false
 		a.mu.Unlock()
-		return
+		return pubsub.AckTypeNackDiscard
 	}
 
 	winnerIndex := rand.Intn(len(items))
@@ -79,7 +74,7 @@ func (a *App) handleSpinTrigger(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.executeObsSpin(spinnerUrl)
-	w.WriteHeader(http.StatusOK)
+	return pubsub.AckTypeAck
 }
 
 func (a *App) handleSpinnerComplete(w http.ResponseWriter, r *http.Request) {

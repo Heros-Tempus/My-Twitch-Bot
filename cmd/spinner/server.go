@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -20,10 +19,6 @@ func (a *App) startFileServer() {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write(spinnerHTML)
 	})
-	
-	secretKey := os.Getenv("HOTKEY_API_SECRET")
-	authMiddleware := RequireAuth(secretKey)
-	mux.Handle("/api/spin", authMiddleware(http.HandlerFunc(a.handleSpinTrigger)))
 
 	mux.HandleFunc("/api/spinner/complete", a.handleSpinnerComplete)
 

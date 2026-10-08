@@ -138,7 +138,23 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
-  
+    
+  hotkey-listener:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: hotkey-listener
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - "./hotkeys.json:/root/hotkeys.json"
+    environment:
+      - RABBIT_CON_STRING=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
   spinner:
     build:
       context: .

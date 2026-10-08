@@ -17,6 +17,10 @@ services:
   song-player:
     ports:
       - "8000:8000"
+    
+  hotkey-listener:
+    ports:
+      - "8083:8083"
   
   spinner:
     ports:

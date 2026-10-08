@@ -19,7 +19,7 @@ func (app *App) setupRabbitMQ(rabbitConString string) error {
 		con.Close()
 		return fmt.Errorf("Error opening RabbitMQ channel: %w", err)
 	}
-	
+
 	app.rabbitConn = con
 	app.rabbitChan = ch
 
@@ -29,6 +29,18 @@ func (app *App) setupRabbitMQ(rabbitConString string) error {
 		app.rabbitConn.Close()
 		return fmt.Errorf("Error declaring bot exchange: %w", err)
 	}
-	
+
+	err = pubsub.DeclareAndBindQueue(app.rabbitChan, pubsub.ExchangeBot, "spinner", "spinner")
+	if err != nil {
+		app.rabbitChan.Close()
+		app.rabbitConn.Close()
+		return fmt.Errorf("Error declaring and binding spinner queue: %w", err)
+	}
+	err = pubsub.SubscribeJSON(app.rabbitConn, pubsub.ExchangeBot, "spinner", "spinner", pubsub.SimpleQueueTypeDurable, app.handleSpinTrigger)
+	if err != nil {
+		app.rabbitChan.Close()
+		app.rabbitConn.Close()
+		return fmt.Errorf("Error subscribing to spinner queue: %w", err)
+	}
 	return nil
 }
