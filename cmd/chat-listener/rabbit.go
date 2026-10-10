@@ -37,3 +37,14 @@ func (a *App) setupRabbitMQ(uri string) error {
 	
 	return nil
 }
+
+func cleanupRabbitMQ(app *App) {
+	if app.rabbitChan != nil {
+		log.Println("Closing RabbitMQ channel...")
+		app.rabbitChan.Close()
+	}
+	if app.rabbitConn != nil {
+		log.Println("Closing RabbitMQ connection...")
+		app.rabbitConn.Close()
+	}
+}

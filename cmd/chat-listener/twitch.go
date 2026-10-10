@@ -15,7 +15,11 @@ import (
 	"github.com/coder/websocket"
 )
 
-func SubscribeToChat(sessionID string, t models.OAuthToken) error {
+func (a *App) SubscribeToChat(sessionID string) error {
+	t, valid := a.getToken()
+	if !valid {
+		return errors.New("cannot listen to Twitch without a valid token")
+	}
 	url := "https://api.twitch.tv/helix/eventsub/subscriptions"
 
 	payload := map[string]interface{}{
@@ -61,7 +65,11 @@ func SubscribeToChat(sessionID string, t models.OAuthToken) error {
 	return nil
 }
 
-func ListenToTwitch(ctx context.Context, t models.OAuthToken, onMessage func(string, string, models.OverlayMessage), onRevocation func(SubscriptionRevocation), invalidateToken func() bool) error {
+func (a *App) ListenToTwitch(ctx context.Context) error {
+	t, valid := a.getToken()
+	if !valid {
+		return errors.New("cannot listen to Twitch without a valid token")
+	}
 	wsURL := "wss://eventsub.wss.twitch.tv/ws"
 
 	log.Printf("Connecting to Twitch EventSub at %s...", wsURL)
@@ -112,7 +120,7 @@ func ListenToTwitch(ctx context.Context, t models.OAuthToken, onMessage func(str
 			log.Printf("Keepalive timeout set to %v", timeoutDuration)
 
 			if !isReconnecting {
-				if err := SubscribeToChat(welcome.Session.ID, t); err != nil {
+				if err := a.SubscribeToChat(welcome.Session.ID); err != nil {
 					log.Printf("Subscription failed: %v", err)
 				}
 			} else {
@@ -133,7 +141,7 @@ func ListenToTwitch(ctx context.Context, t models.OAuthToken, onMessage func(str
 				continue
 			}
 
-			onMessage(notification.Event.Message.Text, notification.Event.ChatterUserName, MapTwitchToOverlay(notification.Event))
+			a.RouteCommand(notification.Event.Message.Text, notification.Event.ChatterUserName, MapTwitchToOverlay(notification.Event))
 
 		case "session_reconnect":
 			var reconnect SessionReconnect
@@ -162,8 +170,8 @@ func ListenToTwitch(ctx context.Context, t models.OAuthToken, onMessage func(str
 				continue
 			}
 			log.Printf("Subscription revoked. Type: %s, Status: %s", revocation.Subscription.Type, revocation.Subscription.Status)
-			if invalidateToken() {
-				onRevocation(revocation)
+			if a.invalidateForRefresh() {
+				a.HandleRevocation(revocation)
 			}
 			return fmt.Errorf("subscription revoked (status: %s)", revocation.Subscription.Status)
 		default:

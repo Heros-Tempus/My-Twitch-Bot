@@ -43,7 +43,7 @@ func main() {
 			break
 		}
 		
-		tkn, valid := app.getToken()
+		_, valid := app.getToken()
 		if !valid {
 			log.Println("Token is currently invalid or revoked. Waiting before retry...")
 			select {
@@ -58,7 +58,7 @@ func main() {
 
 		connectionStartTime := time.Now()
 		
-		err := ListenToTwitch(connCtx, tkn, app.RouteCommand, app.HandleRevocation, app.invalidateForRefresh)
+		err := app.ListenToTwitch(connCtx)
 
 		cancelConn()
 
@@ -86,15 +86,4 @@ func main() {
 
 	cleanupRabbitMQ(app)
 	log.Println("Graceful shutdown complete.")
-}
-
-func cleanupRabbitMQ(app *App) {
-	if app.rabbitChan != nil {
-		log.Println("Closing RabbitMQ channel...")
-		app.rabbitChan.Close()
-	}
-	if app.rabbitConn != nil {
-		log.Println("Closing RabbitMQ connection...")
-		app.rabbitConn.Close()
-	}
 }
