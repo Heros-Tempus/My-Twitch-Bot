@@ -2,10 +2,12 @@ package pubsub
 
 import (
 	"bytes"
-	"context"
 	"encoding/gob"
-	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
+	"os"
+	"syscall"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -34,45 +36,6 @@ func DeclareAndBindQueue(ch *amqp.Channel, exchange ExchangeName, queueName Queu
 		string(exchange),
 		false,
 		nil,
-	)
-}
-
-func PublishJSON[T any](ch *amqp.Channel, exchange ExchangeName, key RoutingKey, val T) error {
-	body, err := json.Marshal(val)
-	if err != nil {
-		fmt.Println("Error marshaling JSON:", err)
-		return err
-	}
-
-	return ch.PublishWithContext(
-		context.Background(),
-		string(exchange),
-		string(key),
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        body,
-		},
-	)
-}
-
-func PublishGob[T any](ch *amqp.Channel, exchange ExchangeName, key RoutingKey, val T) error {
-	body, err := EncodeGob(val)
-	if err != nil {
-		return err
-	}
-
-	return ch.PublishWithContext(
-		context.Background(),
-		string(exchange),
-		string(key),
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "application/gob",
-			Body:        body,
-		},
 	)
 }
 
@@ -105,22 +68,6 @@ func DeclareAndBind(conn *amqp.Connection, exchange ExchangeName, queueName Queu
 		return nil, amqp.Queue{}, err
 	}
 	return rabbitChan, rabbitQueue, nil
-}
-
-func SubscribeJSON[T any](conn *amqp.Connection, exchange ExchangeName, queueName QueueName, key RoutingKey, queueType SimpleQueueType, handler func(T) AckType) error {
-	return subscribe(conn, exchange, queueName, key, queueType, handler, func(data []byte) (T, error) {
-		var val T
-		err := json.Unmarshal(data, &val)
-		return val, err
-	})
-}
-
-func SubscribeGob[T any](conn *amqp.Connection, exchange ExchangeName, queueName QueueName, key RoutingKey, queueType SimpleQueueType, handler func(T) AckType) error {
-	return subscribe(conn, exchange, queueName, key, queueType, handler, func(data []byte) (T, error) {
-		var val T
-		err := DecodeGob(data, &val)
-		return val, err
-	})
 }
 
 func subscribe[T any](conn *amqp.Connection, exchange ExchangeName, queueName QueueName, key RoutingKey, simpleQueueType SimpleQueueType, handler func(T) AckType, unmarshaller func([]byte) (T, error),
@@ -173,4 +120,15 @@ func DecodeGob[T any](data []byte, val *T) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	return dec.Decode(val)
+}
+
+func IsConnRefused(err error) bool {
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		var sysErr *os.SyscallError
+		if errors.As(opErr.Err, &sysErr) {
+			return errors.Is(sysErr.Err, syscall.ECONNREFUSED)
+		}
+	}
+	return false
 }
