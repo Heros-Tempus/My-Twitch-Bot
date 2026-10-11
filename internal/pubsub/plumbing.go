@@ -12,10 +12,6 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func DeclareExchange(ch *amqp.Channel, exchange ExchangeName, kind string) error {
-	return ch.ExchangeDeclare(string(exchange), kind, true, false, false, false, nil)
-}
-
 func DeclareAndBindQueue(ch *amqp.Channel, exchange ExchangeName, queueName QueueName, routingKey RoutingKey) error {
 	table := make(amqp.Table)
 	table["x-dead-letter-exchange"] = "twitch.dlx"
