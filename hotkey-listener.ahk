@@ -4,7 +4,7 @@ SendMode Input
 SetWorkingDir %A_ScriptDir%
 
 envPath := A_ScriptDir . "\.env"
-configPath := A_ScriptDir . "\cmd\hotkey-listener\hotkeys.json"
+configPath := A_ScriptDir . "\hotkeys.json"
 apiSecret := ""
 desktopIP := ""
 
