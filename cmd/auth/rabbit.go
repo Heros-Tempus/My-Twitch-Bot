@@ -9,7 +9,7 @@ import (
 )
 
 func (a *App) setupRabbitMQ(uri string) error {
-	con, err := pubsub.ConnectWithBackoff(uri, 5)
+	con, err := pubsub.ConnectWithJitter(uri, 5)
 	if err != nil {
 		return fmt.Errorf("error connecting to RabbitMQ: %w", err)
 	}

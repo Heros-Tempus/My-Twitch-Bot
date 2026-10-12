@@ -8,7 +8,7 @@ import (
 )
 
 func (app *App) setupRabbitMQ(rabbitConString string) error {
-	con, err := pubsub.ConnectWithBackoff(rabbitConString, 5)
+	con, err := pubsub.ConnectWithJitter(rabbitConString, 5)
 	if err != nil {
 		return fmt.Errorf("Error connecting to RabbitMQ: %w", err)
 	}
