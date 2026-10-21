@@ -2,7 +2,7 @@
 
 A distributed, locally-hosted Twitch bot built in Go. This bot is composed of several specialized microservices that communicate via RabbitMQ. State is managed via a PostgreSQL database, and the bot interfaces directly with OBS Studio over WebSockets to control media playback and render chat overlays. 
 
-It is designed to run via Docker Compose on a desktop machine, communicating with an OBS instance on a separate laptop over a peer-to-peer Tailscale connection. Though it could in principle run on the same machine as the OBS instance, or they could run on seperate machines without a peer-to-peer conection if done so on a local network.
+It is designed to run via Docker Compose on a desktop machine, communicating with an OBS instance on a separate laptop over a peer-to-peer Tailscale connection. Though it could in principle run on the same machine as the OBS instance, or they could run on separate machines without a peer-to-peer connection if done so on a local network.
 
 ---
 
