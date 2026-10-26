@@ -65,7 +65,7 @@ func ParseCommand(in models.Command) ParsedCommand {
 			params.SourceMedia = sql.NullString{String: val, Valid: true}
 		case "original_composer":
 			params.OriginalComposer = sql.NullString{String: val, Valid: true}
-		case "limit":
+		case "count":
 			if parsed, err := strconv.ParseInt(val, 10, 32); err == nil {
 				limit = int32(parsed)
 			}

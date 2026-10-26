@@ -73,7 +73,7 @@ func (a *App) handleChatCommand(msg models.Command) pubsub.AckType {
 
 func (a *App) handleHelp() pubsub.AckType {
 	a.sendToChat("Usage: !gc <filters> or !gc <command>")
-	a.sendToChat("Available filters: --track, --artist, --album, --source_media, --original_composer, --limit")
+	a.sendToChat("Available filters: --track, --artist, --album, --source_media, --original_composer, --count")
 	a.sendToChat("Available command: --peek")
 	a.sendToChat("Mod-only commands: --skip, --shuffle, --clear")
 	return pubsub.AckTypeAck
@@ -132,7 +132,22 @@ func (a *App) handleQueueCmd(ctx context.Context, params database.QueueRandomTra
 		return pubsub.AckTypeAck
 	}
 
-	a.sendToChat(fmt.Sprintf("Queued %d tracks!", len(queuedTracks)))
+	var queueMessage []string
+	for i, track := range queuedTracks {
+		next := ""
+		if track.Album.Valid {
+			next = fmt.Sprintf("%d: Queued: %s - %s (%s)", i+1, track.Artist, track.Track, track.Album.String)
+		} else {
+			next = fmt.Sprintf("%d: Queued: %s - %s", i+1, track.Artist, track.Track)
+		}
+		if len([]rune(strings.Join(queueMessage, ", ")))+len([]rune(next))+(2*i) < 500 {
+			queueMessage = append(queueMessage, next)
+		} else {
+			queueMessage = append(queueMessage, "...")
+			break
+		}
+	}
+	a.sendToChat(strings.Join(queueMessage, ", "))
 
 	a.mu.Lock()
 	idle := a.isIdle

@@ -1,6 +1,6 @@
 -- name: QueueRandomTracks :many
 WITH selected_tracks AS (
-    SELECT video_id
+    SELECT video_id, track, artist, album
     FROM tracks
     WHERE (sqlc.narg('track')::text IS NULL
            OR track ILIKE '%' || REPLACE(REPLACE(sqlc.narg('track')::text, '%', '\%'), '_', '\_') || '%' ESCAPE '\')
@@ -15,11 +15,20 @@ WITH selected_tracks AS (
       AND enabled = true
     ORDER BY RANDOM()
     LIMIT GREATEST(1, COALESCE(sqlc.narg('limit_count')::integer, 1))
+),
+inserted_queue AS (
+    INSERT INTO queue (video_id)
+    SELECT video_id
+    FROM selected_tracks
+    RETURNING video_id
 )
-INSERT INTO queue (video_id)
-SELECT video_id
-FROM selected_tracks
-RETURNING video_id;
+SELECT 
+    iq.video_id,
+    st.track,
+    st.artist,
+    st.album
+FROM inserted_queue iq
+JOIN selected_tracks st ON iq.video_id = st.video_id;
 
 -- name: PopNextTrack :one
 WITH next_in_queue AS (

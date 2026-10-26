@@ -141,7 +141,7 @@ func (q *Queries) PopNextTrack(ctx context.Context) (PopNextTrackRow, error) {
 
 const queueRandomTracks = `-- name: QueueRandomTracks :many
 WITH selected_tracks AS (
-    SELECT video_id
+    SELECT video_id, track, artist, album
     FROM tracks
     WHERE ($1::text IS NULL
            OR track ILIKE '%' || REPLACE(REPLACE($1::text, '%', '\%'), '_', '\_') || '%' ESCAPE '\')
@@ -156,11 +156,20 @@ WITH selected_tracks AS (
       AND enabled = true
     ORDER BY RANDOM()
     LIMIT GREATEST(1, COALESCE($6::integer, 1))
+),
+inserted_queue AS (
+    INSERT INTO queue (video_id)
+    SELECT video_id
+    FROM selected_tracks
+    RETURNING video_id
 )
-INSERT INTO queue (video_id)
-SELECT video_id
-FROM selected_tracks
-RETURNING video_id
+SELECT 
+    iq.video_id,
+    st.track,
+    st.artist,
+    st.album
+FROM inserted_queue iq
+JOIN selected_tracks st ON iq.video_id = st.video_id
 `
 
 type QueueRandomTracksParams struct {
@@ -172,7 +181,14 @@ type QueueRandomTracksParams struct {
 	LimitCount       sql.NullInt32
 }
 
-func (q *Queries) QueueRandomTracks(ctx context.Context, arg QueueRandomTracksParams) ([]sql.NullString, error) {
+type QueueRandomTracksRow struct {
+	VideoID sql.NullString
+	Track   string
+	Artist  string
+	Album   sql.NullString
+}
+
+func (q *Queries) QueueRandomTracks(ctx context.Context, arg QueueRandomTracksParams) ([]QueueRandomTracksRow, error) {
 	rows, err := q.db.QueryContext(ctx, queueRandomTracks,
 		arg.Track,
 		arg.Artist,
@@ -185,13 +201,18 @@ func (q *Queries) QueueRandomTracks(ctx context.Context, arg QueueRandomTracksPa
 		return nil, err
 	}
 	defer rows.Close()
-	var items []sql.NullString
+	var items []QueueRandomTracksRow
 	for rows.Next() {
-		var video_id sql.NullString
-		if err := rows.Scan(&video_id); err != nil {
+		var i QueueRandomTracksRow
+		if err := rows.Scan(
+			&i.VideoID,
+			&i.Track,
+			&i.Artist,
+			&i.Album,
+		); err != nil {
 			return nil, err
 		}
-		items = append(items, video_id)
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
