@@ -30,6 +30,7 @@ func (a *App) popAndPlayNextTrack(ctx context.Context) {
 	t := Track{
 		Artist: trackData.Artist,
 		Track:  trackData.Track,
+		Url:    trackData.Url,
 	}
 	if trackData.SourceMedia.Valid {
 		t.SourceMedia = trackData.SourceMedia.String

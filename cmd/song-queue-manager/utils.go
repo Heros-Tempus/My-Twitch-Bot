@@ -19,7 +19,7 @@ func buildAttribution(t Track) string {
 	if t.OriginalComposer != "" {
 		parts = append(parts, fmt.Sprintf("Composed by: %s", t.OriginalComposer))
 	}
-
+	parts = append(parts, fmt.Sprintf("Listen at %s", t.Url))
 	return strings.Join(parts, "\n")
 }
 

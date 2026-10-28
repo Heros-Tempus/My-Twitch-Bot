@@ -35,14 +35,15 @@ type Track struct {
 	SourceMedia      string
 	Album            string
 	OriginalComposer string
+	Url              string
 }
 
 type App struct {
 	rabbitChan *amqp.Channel
 	rabbitConn *amqp.Connection
-	service *Service
-	mu      sync.Mutex
-	isIdle  bool
+	service    *Service
+	mu         sync.Mutex
+	isIdle     bool
 }
 
 func NewService(dbConn *sql.DB) *Service {
