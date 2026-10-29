@@ -133,21 +133,46 @@ func (a *App) handleQueueCmd(ctx context.Context, params database.QueueRandomTra
 	}
 
 	var queueMessage []string
+
 	for i, track := range queuedTracks {
-		next := ""
+		var next string
 		if track.Album.Valid {
-			next = fmt.Sprintf("%d: Queued: %s - %s (%s)", i+1, track.Artist, track.Track, track.Album.String)
+			next = fmt.Sprintf("%d: Queued: %s\n%s (%s)", i+1, track.Artist, track.Track, track.Album.String)
 		} else {
-			next = fmt.Sprintf("%d: Queued: %s - %s", i+1, track.Artist, track.Track)
+			next = fmt.Sprintf("%d: Queued: %s\n%s", i+1, track.Artist, track.Track)
 		}
-		if len([]rune(strings.Join(queueMessage, ", ")))+len([]rune(next))+(2*i) < 500 {
-			queueMessage = append(queueMessage, next)
-		} else {
-			queueMessage = append(queueMessage, "...")
+
+		candidateParts := append(append([]string(nil), queueMessage...), next)
+		candidate := strings.Join(candidateParts, ", ")
+
+		if i < len(queuedTracks)-1 {
+			moreCount := len(queuedTracks) - (i + 1)
+			candidate += fmt.Sprintf(", ... and %d more tracks", moreCount)
+		}
+
+		if len([]rune(candidate)) > 500 {
 			break
 		}
+
+		queueMessage = append(queueMessage, next)
 	}
-	a.sendToChat(strings.Join(queueMessage, ", "))
+
+	var s string
+	if len(queueMessage) == 0 {
+		if len(queuedTracks) > 0 {
+			s = fmt.Sprintf("Queued %d tracks", len(queuedTracks))
+		} else {
+			s = "No tracks queued."
+		}
+	} else {
+		s = strings.Join(queueMessage, ", ")
+		if len(queueMessage) < len(queuedTracks) {
+			more := len(queuedTracks) - len(queueMessage)
+			s += fmt.Sprintf(", ... and %d more tracks", more)
+		}
+	}
+
+	a.sendToChat(s)
 
 	a.mu.Lock()
 	idle := a.isIdle
