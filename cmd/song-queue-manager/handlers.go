@@ -137,9 +137,13 @@ func (a *App) handleQueueCmd(ctx context.Context, params database.QueueRandomTra
 	for i, track := range queuedTracks {
 		var next string
 		if track.Album.Valid {
-			next = fmt.Sprintf("%d: Queued: %s\n%s (%s)", i+1, track.Artist, track.Track, track.Album.String)
+			next = fmt.Sprintf("%d: %s\n%s (%s)", i+1, track.Artist, track.Track, track.Album.String)
 		} else {
-			next = fmt.Sprintf("%d: Queued: %s\n%s", i+1, track.Artist, track.Track)
+			next = fmt.Sprintf("%d: %s\n%s", i+1, track.Artist, track.Track)
+		}
+
+		if i == 0 {
+			next = "Queued: " + next
 		}
 
 		candidateParts := append(append([]string(nil), queueMessage...), next)
