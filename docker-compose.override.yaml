@@ -1,27 +1,27 @@
 services:
   rabbitmq:
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "${DESKTOP_IP}:5672:5672"
+      - "${DESKTOP_IP}:15672:15672"
   auth:
     ports:
-      - "8081:8081"
+      - "${DESKTOP_IP}:8081:8081"
   postgres:
     ports:
-      - "5432:5432"
+      - "${DESKTOP_IP}:5432:5432"
       
   chat-overlay:
     ports:
-      - "8080:8080"
+      - "${DESKTOP_IP}:8080:8080"
   
   song-player:
     ports:
-      - "8000:8000"
+      - "${DESKTOP_IP}:8000:8000"
     
   hotkey-listener:
     ports:
-      - "8083:8083"
+      - "${DESKTOP_IP}:8083:8083"
   
   spinner:
     ports:
-      - "8082:8082"
+      - "${DESKTOP_IP}:8082:8082"

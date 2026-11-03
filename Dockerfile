@@ -19,4 +19,6 @@ RUN apk --no-cache add ca-certificates
 
 COPY --from=builder /app/bin/service .
 
+ENV GODEBUG=multipathtcp=0
+
 CMD ["./service"]
