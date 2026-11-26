@@ -6,9 +6,6 @@ services:
   auth:
     ports:
       - "${DESKTOP_IP}:8081:8081"
-  postgres:
-    ports:
-      - "${DESKTOP_IP}:5432:5432"
       
   chat-overlay:
     ports:
