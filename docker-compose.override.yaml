@@ -1,8 +1,8 @@
 services:
-  rabbitmq:
-    ports:
-      - "${DESKTOP_IP}:5672:5672"
-      - "${DESKTOP_IP}:15672:15672"
+  #rabbitmq:
+   # ports:
+   #   - "${DESKTOP_IP}:5672:5672"
+   #   - "${DESKTOP_IP}:15672:15672"
   auth:
     ports:
       - "${DESKTOP_IP}:8081:8081"
